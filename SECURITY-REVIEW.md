@@ -8,7 +8,7 @@ Status: All three findings below have been fixed in the current worktree.
 
 - Severity: HIGH
 - Confidence: 9/10
-- Location: `database/fixmyroad.sql`, lines 186-192
+- Location: `database/fixmyroad.sql`, lines 191-193
 
 The seed import creates three publicly documented accounts using `SEED_PLAIN:password123`, including `admin@roads.gov.ug`. If imported into a deployed environment without credential rotation, an unauthenticated visitor can sign in as administrator.
 
@@ -18,7 +18,7 @@ The seed import creates three publicly documented accounts using `SEED_PLAIN:pas
 
 - Severity: MEDIUM
 - Confidence: 10/10
-- Location: `track_report.php`, lines 21-70
+- Location: `track_report.php`, lines 22-84
 
 Ticket confirmation, reopening, and feedback actions do not verify ticket ownership or the active 48-hour confirmation window. Any authenticated user can supply a public ticket ID and close, reopen, or rate another user's resolved ticket.
 
@@ -28,7 +28,7 @@ Ticket confirmation, reopening, and feedback actions do not verify ticket owners
 
 - Severity: MEDIUM
 - Confidence: 8/10
-- Location: `includes/helpers.php`, lines 139-145
+- Location: `includes/helpers.php`, lines 137-141
 
 `verify_csrf()` redirects failed POST submissions to `$_SERVER['HTTP_REFERER']` without validating same-origin or local destination. An attacker-controlled Referer can cause an open redirect after a failed CSRF validation.
 
