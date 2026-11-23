@@ -1,14 +1,7 @@
 /**
  * FixMyRoad (Kansanga Pilot) - Simple Beginner-Friendly JavaScript Helpers
- * Handles: demo login autofill, admin official notice live preview & expiry presets.
+ * Handles: admin official notice live preview & expiry presets.
  */
-
-function fillDemo(email) {
-  var emailInput = document.getElementById('login-email');
-  var passInput = document.getElementById('login-password');
-  if (emailInput) emailInput.value = email;
-  if (passInput) passInput.value = 'password123';
-}
 
 function setNoticeExpiryPreset(days) {
   var inp = document.getElementById('ntcExpiryInput');

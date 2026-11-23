@@ -51,17 +51,23 @@ Common sections inside `css/style.css` are clearly labeled:
 
 ---
 
-## 3. Demo Accounts (Ready After SQL Import)
+## 3. Account Setup
 
-All 3 seeded accounts use the password **`password123`** (automatically upgraded to secure `bcrypt` hashes via `password_hash()` on first sign-in):
+The sample accounts in the SQL seed data have disabled passwords; there are no shared demo credentials. On startup, the app also disables this old shared password in databases imported from earlier versions. Residents can create accounts through `register.php`.
 
-| Role | Name | Email | Password |
-| :--- | :--- | :--- | :--- |
-| **Community Member** | Ipavu Roy | `faithprogress@gmail.com` | `password123` |
-| **Field Officer** | David Mukasa | `dmukasa@roads.gov.ug` | `password123` |
-| **Administrator** | Sarah Nsubuga | `admin@roads.gov.ug` | `password123` |
+To enable the seeded administrator for a local demonstration:
 
-You can also click the 1-click demo buttons on `login.php` or register a brand-new citizen account via `register.php`.
+1. Generate a password hash with PHP CLI: `php -r "echo password_hash('REPLACE_WITH_A_UNIQUE_PASSWORD', PASSWORD_DEFAULT), PHP_EOL;"`.
+2. In phpMyAdmin, select `fixmyroad_db` and open the **SQL** tab.
+3. Set the password hash for the seeded administrator by replacing the placeholder with the generated hash:
+
+   ```sql
+   UPDATE users
+   SET password_hash = 'PASTE_THE_GENERATED_HASH_HERE'
+   WHERE id = 'usr-3' AND email = 'admin@roads.gov.ug';
+   ```
+
+Use a unique password and do not reuse it on a live deployment. Create field-officer demo accounts from the admin dashboard after signing in.
 
 ---
 
@@ -89,7 +95,7 @@ fixmyroad-php/
 ├── dashboard.php             # Citizen Dashboard, Official Notices category filter, Feed
 ├── field_officer.php         # Field Officer Work Orders & Preventive Maintenance logging
 ├── index.php                 # Public landing page with live Kansanga KPIs
-├── login.php                 # Sign In + 1-click demo credentials
+├── login.php                 # Sign In
 ├── logout.php                # Clean session teardown
 ├── map_alerts.php            # Interactive Leaflet map of Kansanga faults + Alert inbox
 ├── profile.php               # Profile editor, password change & Hero badge breakdown

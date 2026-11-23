@@ -85,23 +85,6 @@ require_once __DIR__ . '/includes/header.php';
       <a href="forgot.php" class="text-primary">Forgot password?</a>
     </p>
 
-    Quick Demo Credentials Helper
-    <div class="stack-sm" style="padding-top:16px; border-top:1px solid var(--border);">
-      <!-- <div class="kpi-label">Quick Demo Accounts (Password: password123)</div>
-      <button type="button" onclick="fillDemo('alaruroy@gmail.com')" class="btn btn-outline btn-full row-between">
-        <span>Community Member (Ipavu Roy)</span>
-        <span class="text-mono text-muted">alaruroy@gmail.com</span>
-      </button>
-      <button type="button" onclick="fillDemo('dmukasa@roads.gov.ug')" class="btn btn-outline btn-full row-between">
-        <span>Field Officer (David Mukasa)</span>
-        <span class="text-mono text-muted">dmukasa@roads.gov.ug</span>
-      </button>
-      <button type="button" onclick="fillDemo('admin@roads.gov.ug')" class="btn btn-outline btn-full row-between">
-        <span>Administrator (Sarah Nsubuga)</span>
-        <span class="text-mono text-muted">admin@roads.gov.ug</span>
-      </button>
-    </div> -->
-
     <p class="text-xs text-muted" style="text-align:center;">
       New resident in Kansanga?
       <a href="register.php" class="text-primary font-bold">Create Citizen Account</a>

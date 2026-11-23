@@ -184,13 +184,13 @@ CREATE TABLE `settings` (
 
 -- ---------------------------------------------------------------------------
 -- SEED DATA (Kansanga, Makindye Division Pilot)
--- Demo Password for all 3 seeded accounts: password123
+-- Seed accounts are disabled until an administrator sets unique passwords.
 -- ---------------------------------------------------------------------------
 
 INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `phone`, `role`, `division`, `street_address`, `avatar`, `account_status`) VALUES
-('usr-1', 'Ipavu Roy', 'alaruroy@gmail.com', 'SEED_PLAIN:password123', '+256 701 234 567', 'Community Member', 'Kansanga (Makindye)', 'Plot 14, Ggaba Road, Kansanga', '', 'active'),
-('usr-2', 'David Mukasa', 'dmukasa@roads.gov.ug', 'SEED_PLAIN:password123', '+256 772 987 654', 'Field Officer', 'Kiwafu / Kansanga', 'Kansanga Works Outpost, Kiwafu Road', '', 'active'),
-('usr-3', 'Sarah Nsubuga', 'admin@roads.gov.ug', 'SEED_PLAIN:password123', '+256 754 112 233', 'Administrator', 'Makindye Division (Kansanga Pilot)', 'Makindye - Kansanga Municipal Works Office, Ggaba Road', '', 'active');
+('usr-1', 'Ipavu Roy', 'alaruroy@gmail.com', '!', '+256 701 234 567', 'Community Member', 'Kansanga (Makindye)', 'Plot 14, Ggaba Road, Kansanga', '', 'active'),
+('usr-2', 'David Mukasa', 'dmukasa@roads.gov.ug', '!', '+256 772 987 654', 'Field Officer', 'Kiwafu / Kansanga', 'Kansanga Works Outpost, Kiwafu Road', '', 'active'),
+('usr-3', 'Sarah Nsubuga', 'admin@roads.gov.ug', '!', '+256 754 112 233', 'Administrator', 'Makindye Division (Kansanga Pilot)', 'Makindye - Kansanga Municipal Works Office, Ggaba Road', '', 'active');
 
 INSERT INTO `officers` (`id`, `name`, `division`, `specialty`, `max_capacity`, `status`, `avg_resolution_hours`) VALUES
 ('off-1', 'David Mukasa', 'Kansanga & Kiwafu', 'Asphalt & Road Base Lead', 6, 'Field Deployed', 19),

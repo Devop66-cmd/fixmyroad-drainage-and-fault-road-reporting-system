@@ -9,7 +9,7 @@ if ($reportId === '') {
     $reportId = $first ?: '#RPT-00123';
 }
 
-$stmt = $pdo->prepare('SELECT * FROM reports WHERE id = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT *, (confirmation_expires_at > NOW()) AS confirmation_window_open FROM reports WHERE id = ? LIMIT 1');
 $stmt->execute([$reportId]);
 $report = $stmt->fetch();
 
@@ -18,16 +18,44 @@ if (!$report) {
     redirect_to('public_data.php');
 }
 
+$isOwner = $user && strtolower(trim($user['email'])) === strtolower(trim($report['reported_by_email']));
+$confirmationOpen = $report['status'] === 'Resolved'
+    && $report['confirmation_state'] === 'awaiting_confirmation'
+    && (bool)$report['confirmation_window_open'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $actor = require_login();
     $action = $_POST['action'] ?? '';
     $nowLabel = date('Y-m-d H:i');
 
-    if ($action === 'confirm_fix' && $report['status'] === 'Resolved') {
+    if (in_array($action, ['confirm_fix', 'reopen_fix'], true) && !$isOwner) {
+        flash_set('error', 'Only the report owner can confirm or reopen this repair.');
+        redirect_to('track_report.php?id=' . urlencode($reportId));
+    }
+
+    if (in_array($action, ['confirm_fix', 'reopen_fix'], true) && !$confirmationOpen) {
+        flash_set('error', 'The 48-hour verification window for this repair has closed.');
+        redirect_to('track_report.php?id=' . urlencode($reportId));
+    }
+
+    if ($action === 'submit_feedback' && (!$isOwner || $report['status'] !== 'Resolved')) {
+        flash_set('error', 'Only the report owner can rate a resolved repair.');
+        redirect_to('track_report.php?id=' . urlencode($reportId));
+    }
+
+    if ($action === 'confirm_fix') {
         $note = trim((string)($_POST['confirm_note'] ?? 'Citizen verified that repair holds cleanly.'));
-        $pdo->prepare("UPDATE reports SET confirmation_state = 'confirmed', confirmed_by = ? WHERE id = ?")
-            ->execute([$actor['name'], $reportId]);
+        $update = $pdo->prepare(
+            "UPDATE reports SET confirmation_state = 'confirmed', confirmed_by = ?
+             WHERE id = ? AND LOWER(reported_by_email) = ? AND status = 'Resolved'
+               AND confirmation_state = 'awaiting_confirmation' AND confirmation_expires_at > NOW()"
+        );
+        $update->execute([$actor['name'], $reportId, strtolower(trim($actor['email']))]);
+        if ($update->rowCount() !== 1) {
+            flash_set('error', 'This repair is no longer awaiting confirmation.');
+            redirect_to('track_report.php?id=' . urlencode($reportId));
+        }
         $pdo->prepare("INSERT INTO report_updates (report_id, timestamp_label, text, author, update_type) VALUES (?, ?, ?, ?, 'resolved')")
             ->execute([$reportId, $nowLabel, "Citizen Confirmation: $note", $actor['name']]);
         log_audit($actor['name'], $actor['role'], 'Confirmed Repair Fix', $reportId, $note, 'feedback');
@@ -35,13 +63,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('track_report.php?id=' . urlencode($reportId));
     }
 
-    if ($action === 'reopen_fix' && $report['status'] === 'Resolved') {
+    if ($action === 'reopen_fix') {
         $reason = trim((string)($_POST['reopen_reason'] ?? ''));
         if (strlen($reason) < 5) {
             flash_set('error', 'Please explain briefly why the repair needs follow-up.');
         } else {
-            $pdo->prepare("UPDATE reports SET status = 'In Progress', confirmation_state = 'reopened', reopen_reason = ? WHERE id = ?")
-                ->execute([$reason, $reportId]);
+            $update = $pdo->prepare(
+                "UPDATE reports SET status = 'In Progress', confirmation_state = 'reopened', reopen_reason = ?
+                 WHERE id = ? AND LOWER(reported_by_email) = ? AND status = 'Resolved'
+                   AND confirmation_state = 'awaiting_confirmation' AND confirmation_expires_at > NOW()"
+            );
+            $update->execute([$reason, $reportId, strtolower(trim($actor['email']))]);
+            if ($update->rowCount() !== 1) {
+                flash_set('error', 'This repair is no longer awaiting confirmation.');
+                redirect_to('track_report.php?id=' . urlencode($reportId));
+            }
             $pdo->prepare("INSERT INTO report_updates (report_id, timestamp_label, text, author, update_type) VALUES (?, ?, ?, ?, 'work_progress')")
                 ->execute([$reportId, $nowLabel, "Reopened by Citizen during 48h check: $reason", $actor['name']]);
             create_notification("Ticket Reopened ($reportId)", "$reason — reopened by {$actor['name']}.", 'escalation', 'Field Officer', $reportId);
@@ -73,8 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'submit_feedback' && $report['status'] === 'Resolved') {
         $rating = max(1, min(5, (int)($_POST['rating'] ?? 5)));
         $comment = trim((string)($_POST['feedback_comment'] ?? ''));
-        $pdo->prepare('UPDATE reports SET feedback_rating = ?, feedback_comment = ?, feedback_author = ? WHERE id = ?')
-            ->execute([$rating, $comment, $actor['name'], $reportId]);
+        $pdo->prepare(
+            "UPDATE reports SET feedback_rating = ?, feedback_comment = ?, feedback_author = ?
+             WHERE id = ? AND LOWER(reported_by_email) = ? AND status = 'Resolved'"
+        )->execute([$rating, $comment, $actor['name'], $reportId, strtolower(trim($actor['email']))]);
         log_audit($actor['name'], $actor['role'], 'Submitted Repair Feedback', $reportId, "Rated $rating/5 stars.", 'feedback');
         flash_set('success', 'Feedback submitted! (+15 Hero Points)');
         redirect_to('track_report.php?id=' . urlencode($reportId));
@@ -91,7 +129,6 @@ $commentsStmt->execute([$reportId, $isModerator ? 1 : 0]);
 $comments = $commentsStmt->fetchAll();
 
 $sla = get_sla_status($report);
-$isOwner = $user && (strtolower($user['email']) === strtolower($report['reported_by_email']) || strtolower($user['name']) === strtolower($report['reported_by']));
 $statusBadge = $report['status'] === 'Resolved' ? 'badge-resolved' : ($report['status'] === 'In Progress' ? 'badge-progress' : 'badge-pending');
 
 $pageTitle = $report['id'] . ' - Track Fault - FixMyRoad';
@@ -114,7 +151,7 @@ require_once __DIR__ . '/includes/header.php';
   </div>
 
   <!-- Citizen 48h Confirm Fix Banner -->
-  <?php if ($isOwner && $report['status'] === 'Resolved' && $report['confirmation_state'] === 'awaiting_confirmation'): ?>
+  <?php if ($isOwner && $confirmationOpen): ?>
     <div class="alert alert-warning stack-md">
       <div>
         <h2 class="section-title">48-Hour Citizen Verification Window Active</h2>

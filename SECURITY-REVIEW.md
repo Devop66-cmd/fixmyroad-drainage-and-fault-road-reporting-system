@@ -2,6 +2,8 @@
 
 Review date: 2026-11-23
 
+Status: All three findings below have been fixed in the current worktree.
+
 ## 1. Hardcoded production administrator credentials
 
 - Severity: HIGH
@@ -10,7 +12,7 @@ Review date: 2026-11-23
 
 The seed import creates three publicly documented accounts using `SEED_PLAIN:password123`, including `admin@roads.gov.ug`. If imported into a deployed environment without credential rotation, an unauthenticated visitor can sign in as administrator.
 
-**Remediation:** Remove seed accounts and hardcoded demo passwords from production imports. Provision administrator accounts interactively, require unique passwords, and rotate credentials if this schema has already been deployed.
+**Resolution:** Seeded accounts now have disabled passwords. The XAMPP setup guide explains how to set a unique administrator password hash before first sign-in.
 
 ## 2. Broken access control for resolved tickets
 
@@ -20,7 +22,7 @@ The seed import creates three publicly documented accounts using `SEED_PLAIN:pas
 
 Ticket confirmation, reopening, and feedback actions do not verify ticket ownership or the active 48-hour confirmation window. Any authenticated user can supply a public ticket ID and close, reopen, or rate another user's resolved ticket.
 
-**Remediation:** Require the authenticated citizen to match `reported_by_email` or `reported_by`, verify the ticket is resolved and awaiting confirmation, and verify `confirmation_expires_at` is in the future. Enforce the checks in the POST handler and database transaction.
+**Resolution:** Mutating repair actions require the signed-in account's email to match the report owner. Confirmation and reopening additionally require an active 48-hour window, checked again in the update query.
 
 ## 3. Failed-CSRF redirect uses an untrusted Referer
 
@@ -30,4 +32,4 @@ Ticket confirmation, reopening, and feedback actions do not verify ticket owners
 
 `verify_csrf()` redirects failed POST submissions to `$_SERVER['HTTP_REFERER']` without validating same-origin or local destination. An attacker-controlled Referer can cause an open redirect after a failed CSRF validation.
 
-**Remediation:** Redirect failed CSRF submissions to a fixed same-site route such as `index.php` or `dashboard.php`, or return HTTP 403.
+**Resolution:** Failed CSRF validation now redirects to the fixed same-site `index.php` route.

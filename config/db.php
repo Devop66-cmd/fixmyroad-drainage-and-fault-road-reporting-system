@@ -66,6 +66,7 @@ function db(): PDO {
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
         ensure_schema($pdo);
+        $pdo->exec("UPDATE users SET password_hash = '!' WHERE password_hash = 'SEED_PLAIN:password123'");
         return $pdo;
     } catch (PDOException $e) {
         http_response_code(500);

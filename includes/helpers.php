@@ -138,7 +138,7 @@ function verify_csrf(): void {
     $submitted = $_POST['csrf_token'] ?? '';
     if (!$submitted || !hash_equals($_SESSION['csrf_token'] ?? '', $submitted)) {
         flash_set('error', 'Security session token expired. Please submit the form again.');
-        header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? 'index.php'));
+        header('Location: index.php');
         exit;
     }
 }
