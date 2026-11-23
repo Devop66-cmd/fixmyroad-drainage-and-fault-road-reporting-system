@@ -8,6 +8,10 @@ if (current_user()) {
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
+    if (register_attempt_blocked()) {
+        $error = 'Too many registration attempts from this browser. Please wait an hour.';
+    } else {
+    register_attempt_tick();
     $name = trim((string)($_POST['name'] ?? ''));
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     $phone = trim((string)($_POST['phone'] ?? ''));
@@ -36,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set('success', 'Welcome to FixMyRoad! Your citizen account is ready.');
             redirect_to('dashboard.php');
         }
+    }
     }
 }
 

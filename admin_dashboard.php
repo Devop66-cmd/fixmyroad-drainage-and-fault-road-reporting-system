@@ -242,7 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim((string)($_POST['name'] ?? ''));
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $phone = trim((string)($_POST['phone'] ?? ''));
-        $role = ($_POST['role'] ?? 'Field Officer') === 'Administrator' ? 'Administrator' : 'Field Officer';
+        $requestedRole = trim((string)($_POST['role'] ?? 'Field Officer'));
+        $role = in_array($requestedRole, SYSTEM_ROLES, true) ? $requestedRole : 'Field Officer';
         $division = trim((string)($_POST['division'] ?? 'Kansanga (Makindye)'));
         $specialty = trim((string)($_POST['specialty'] ?? 'Road & Drainage Maintenance'));
         $password = (string)($_POST['password'] ?? '');
@@ -313,6 +314,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('admin_dashboard.php?tab=staff');
     }
 
+    if ($action === 'change_user_role') {
+        $targetId = trim((string)($_POST['user_id'] ?? ''));
+        $newRole = trim((string)($_POST['new_role'] ?? ''));
+        if (!in_array($newRole, SYSTEM_ROLES, true)) {
+            flash_set('error', 'Invalid role selected.');
+            redirect_to('admin_dashboard.php?tab=staff');
+        }
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$targetId]);
+        $target = $stmt->fetch();
+        if (!$target) {
+            flash_set('error', 'Account not found.');
+        } elseif ($target['id'] === $user['id'] || $target['id'] === 'usr-3' || strtolower($target['email']) === 'admin@roads.gov.ug') {
+            flash_set('error', 'Protected primary Administrator role cannot be changed.');
+        } elseif ($target['role'] === $newRole) {
+            flash_set('error', "{$target['name']} already has the role \"$newRole\".");
+        } else {
+            $oldRole = $target['role'];
+            $pdo->prepare('UPDATE users SET role = ? WHERE id = ?')->execute([$newRole, $targetId]);
+            if ($newRole === 'Field Officer') {
+                $exists = $pdo->prepare('SELECT id FROM officers WHERE name = ? LIMIT 1');
+                $exists->execute([$target['name']]);
+                if (!$exists->fetch()) {
+                    $pdo->prepare("INSERT INTO officers (id, name, division, specialty, max_capacity, status, avg_resolution_hours) VALUES (?, ?, ?, 'Road & Drainage Maintenance', 5, 'Available', 20)")
+                        ->execute(['off-' . bin2hex(random_bytes(3)), $target['name'], $target['division'] ?: 'Kansanga (Makindye)']);
+                }
+            }
+            log_audit($user['name'], $user['role'], 'Changed User Role', $targetId, "{$target['name']} ({$target['email']}): \"$oldRole\" → \"$newRole\".", 'auth');
+            flash_set('success', "Role of {$target['name']} updated to $newRole.");
+        }
+        redirect_to('admin_dashboard.php?tab=staff');
+    }
+
+    if ($action === 'bulk_update_reports') {
+        $ids = $_POST['report_ids'] ?? [];
+        if (!is_array($ids) || $ids === []) {
+            flash_set('error', 'Select at least one report.');
+            redirect_to('admin_dashboard.php?tab=reports');
+        }
+        $nextStatus = trim((string)($_POST['status'] ?? ''));
+        $officer = trim((string)($_POST['assigned_officer'] ?? ''));
+        $validStatuses = ['', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
+        if (!in_array($nextStatus, $validStatuses, true)) {
+            $nextStatus = '';
+        }
+        $updated = 0;
+        foreach ($ids as $reportId) {
+            $reportId = trim((string)$reportId);
+            $stmt = $pdo->prepare('SELECT * FROM reports WHERE id = ? LIMIT 1');
+            $stmt->execute([$reportId]);
+            $existing = $stmt->fetch();
+            if (!$existing) {
+                continue;
+            }
+            $status = $nextStatus !== '' ? $nextStatus : $existing['status'];
+            $officerVal = $officer !== '' ? $officer : $existing['assigned_officer'];
+            if ($status === 'Resolved' && $existing['status'] !== 'Resolved') {
+                $pdo->prepare("UPDATE reports SET status = 'Resolved', assigned_officer = ?, resolved_at = NOW(), confirmation_state = 'awaiting_confirmation', confirmation_expires_at = DATE_ADD(NOW(), INTERVAL 48 HOUR) WHERE id = ?")
+                    ->execute([$officerVal, $reportId]);
+            } else {
+                $pdo->prepare('UPDATE reports SET status = ?, assigned_officer = ? WHERE id = ?')
+                    ->execute([$status, $officerVal, $reportId]);
+            }
+            $updated++;
+        }
+        log_audit($user['name'], $user['role'], 'Bulk Updated Reports', null, "Updated $updated report(s). Status: " . ($nextStatus ?: 'unchanged') . '.', 'assignment');
+        flash_set('success', "Bulk update applied to $updated report(s).");
+        redirect_to('admin_dashboard.php?tab=reports');
+    }
+
     if ($action === 'save_sla_settings') {
         $pairs = [
             'sla_urgent_days' => (string)max(1, (int)($_POST['sla_urgent_days'] ?? 1)),
@@ -330,22 +401,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'run_sla_sweep') {
-        $candidates = $pdo->query("SELECT * FROM reports WHERE status NOT IN ('Resolved', 'Rejected') AND escalated = 0")->fetchAll();
-        $nowTs = time();
-        $count = 0;
-        $nowLabel = date('Y-m-d H:i');
-        foreach ($candidates as $rep) {
-            $dlTs = strtotime($rep['sla_deadline'] ?? '');
-            if ($dlTs && $dlTs < $nowTs) {
-                $reason = "{$rep['priority']} priority fault exceeded SLA deadline ({$rep['sla_deadline']}).";
-                $pdo->prepare('UPDATE reports SET escalated = 1, escalation_reason = ? WHERE id = ?')->execute([$reason, $rep['id']]);
-                $pdo->prepare("INSERT INTO report_updates (report_id, timestamp_label, text, author, update_type) VALUES (?, ?, ?, 'SLA Escalation Engine', 'escalation')")
-                    ->execute([$rep['id'], $nowLabel, "Auto-escalated by SLA sweep: $reason"]);
-                create_notification("SLA Escalated ({$rep['id']})", $reason, 'escalation', 'Administrator', $rep['id']);
-                $count++;
-            }
-        }
-        log_audit($user['name'], $user['role'], 'Executed SLA Auto-Escalation Sweep', null, "Flagged $count overdue report(s).", 'escalation');
+        $count = run_sla_sweep($user['name'], $user['role']);
         flash_set('success', "SLA Sweep complete: $count overdue fault(s) escalated.");
         redirect_to('admin_dashboard.php?tab=sla');
     }
@@ -355,6 +411,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'support_toll_free' => trim((string)($_POST['support_toll_free'] ?? '0800 900 112')),
             'support_city_line' => trim((string)($_POST['support_city_line'] ?? '+256 414 901 000')),
             'support_dispatch_email' => trim((string)($_POST['support_dispatch_email'] ?? 'works@roads.gov.ug')),
+            'notify_email' => isset($_POST['notify_email']) ? '1' : '0',
+            'notify_sms' => isset($_POST['notify_sms']) ? '1' : '0',
         ];
         $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
         foreach ($pairs as $k => $v) {
@@ -579,6 +637,24 @@ require_once __DIR__ . '/includes/header.php';
       </form>
 
       <div class="stack-md">
+        <form id="bulkForm" method="POST" class="card" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="bulk_update_reports">
+          <strong class="text-xs">Bulk action</strong>
+          <select name="status" class="form-control" style="width:auto;">
+            <option value="">Keep status</option>
+            <?php foreach (['Pending', 'In Progress', 'Resolved', 'Rejected'] as $st): ?>
+              <option value="<?= $st ?>"><?= $st ?></option>
+            <?php endforeach; ?>
+          </select>
+          <select name="assigned_officer" class="form-control" style="width:auto;">
+            <option value="">Keep officer</option>
+            <?php foreach ($officers as $off): ?>
+              <option value="<?= e($off['name']) ?>"><?= e($off['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <button type="submit" class="btn btn-dark btn-sm">Apply to selected</button>
+        </form>
         <?php foreach ($filteredReports as $r):
           $sla = get_sla_status($r);
         ?>
@@ -586,6 +662,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="row-between" style="align-items:flex-start;">
               <div>
                 <div class="text-mono text-xs font-bold text-primary">
+                  <input form="bulkForm" type="checkbox" name="report_ids[]" value="<?= e($r['id']) ?>" style="margin-right:6px;">
                   <?= e($r['id']) ?> · <?= e($r['category']) ?> · <?= e($r['priority']) ?>
                   <?php if ((int)$r['escalated'] === 1): ?>
                     <span class="text-danger">· ESCALATED</span>
@@ -909,8 +986,8 @@ require_once __DIR__ . '/includes/header.php';
 
     <?php elseif ($activeTab === 'staff'): ?>
       <div>
-        <h1 class="page-title">Staff Provisioning &amp; User Accounts</h1>
-        <p class="page-subtitle">Create Field Officers or Administrators and manage active/blocked accounts.</p>
+        <h1 class="page-title">Staff Provisioning and Role Management</h1>
+        <p class="page-subtitle">Three roles: Community Member, Field Officer, and Administrator. Assign or remove a role except on the protected primary administrator.</p>
       </div>
 
       <form method="POST" class="card stack-md">
@@ -924,6 +1001,7 @@ require_once __DIR__ . '/includes/header.php';
           <select name="role" class="form-control">
             <option value="Field Officer">Field Officer</option>
             <option value="Administrator">Administrator</option>
+            <option value="Community Member">Community Member</option>
           </select>
           <select name="division" class="form-control">
             <option>Kansanga (Makindye)</option>
@@ -944,6 +1022,7 @@ require_once __DIR__ . '/includes/header.php';
               <th>User</th>
               <th>Role &amp; Zone</th>
               <th>Status</th>
+              <th>Change Role</th>
               <th style="text-align:right;">Actions</th>
             </tr>
           </thead>
@@ -959,6 +1038,23 @@ require_once __DIR__ . '/includes/header.php';
                 <td><?= e($u['role']) ?> · <?= e($u['division']) ?></td>
                 <td class="font-bold <?= $u['account_status'] === 'active' ? 'text-success' : 'text-danger' ?>">
                   <?= strtoupper(e($u['account_status'])) ?>
+                </td>
+                <td>
+                  <?php if ($isProtected): ?>
+                    <span class="text-xs text-muted">Protected</span>
+                  <?php else: ?>
+                    <form method="POST" style="display:flex; gap:6px; align-items:center;">
+                      <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="action" value="change_user_role">
+                      <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
+                      <select name="new_role" class="form-control" style="width:auto; padding:4px 6px; font-size:12px;">
+                        <?php foreach (SYSTEM_ROLES as $roleOpt): ?>
+                          <option value="<?= e($roleOpt) ?>" <?= $u['role'] === $roleOpt ? 'selected' : '' ?>><?= e($roleOpt) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                      <button type="submit" class="btn btn-dark btn-sm">Assign</button>
+                    </form>
+                  <?php endif; ?>
                 </td>
                 <td style="text-align:right;">
                   <?php if ($isProtected): ?>
@@ -1050,6 +1146,14 @@ require_once __DIR__ . '/includes/header.php';
           <label class="form-label">Dispatch Email</label>
           <input name="support_dispatch_email" type="email" required value="<?= e($settings['support_dispatch_email']) ?>" class="form-control">
         </div>
+        <label class="text-xs font-bold" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" name="notify_email" value="1" <?= ($settings['notify_email'] ?? '0') === '1' ? 'checked' : '' ?>>
+          Queue an email copy of each in-app notification (demo outbox, not live SMTP)
+        </label>
+        <label class="text-xs font-bold" style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+          <input type="checkbox" name="notify_sms" value="1" <?= ($settings['notify_sms'] ?? '0') === '1' ? 'checked' : '' ?>>
+          Queue an SMS copy to the division line (demo outbox, not a live gateway)
+        </label>
         <button type="submit" class="btn btn-primary">Save Support Channels</button>
       </form>
 

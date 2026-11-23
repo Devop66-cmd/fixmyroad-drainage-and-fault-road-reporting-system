@@ -15,8 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     $password = (string)($_POST['password'] ?? '');
+    $locked = login_lock_message();
 
-    if ($email === '' || $password === '') {
+    if ($locked) {
+        $error = $locked;
+    } elseif ($email === '' || $password === '') {
         $error = 'Please enter both your email address and password.';
     } else {
         $stmt = db()->prepare('SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1');
@@ -24,11 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if (!$user || !verify_user_password($user, $password)) {
-            $error = 'Invalid email or password.';
+            register_login_failure();
+            log_audit('Unknown', 'Guest', 'Failed Sign In', null, "Failed login for $email.", 'auth');
+            $error = login_lock_message() ?? 'Invalid email or password.';
         } elseif ($user['account_status'] === 'blocked') {
             $error = 'This account has been blocked by an Administrator.'
                 . ($user['blocked_reason'] ? ' Reason: ' . $user['blocked_reason'] : '');
         } else {
+            clear_login_failures();
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
             log_audit($user['name'], $user['role'], 'Signed In (XAMPP Session)', $user['id'], 'Authenticated via PHP MySQL login.', 'auth');
@@ -75,6 +81,9 @@ require_once __DIR__ . '/includes/header.php';
 
       <button type="submit" class="btn btn-primary btn-full">Sign In</button>
     </form>
+    <p class="text-xs" style="text-align:right; margin-top:-8px;">
+      <a href="forgot.php" class="text-primary">Forgot password?</a>
+    </p>
 
     Quick Demo Credentials Helper
     <div class="stack-sm" style="padding-top:16px; border-top:1px solid var(--border);">

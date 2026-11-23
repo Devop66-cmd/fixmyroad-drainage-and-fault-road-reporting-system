@@ -10,6 +10,119 @@ const KANSANGA_MAX_LAT = 0.298;
 const KANSANGA_MIN_LNG = 32.594;
 const KANSANGA_MAX_LNG = 32.624;
 
+const SYSTEM_ROLES = ['Community Member', 'Field Officer', 'Administrator'];
+
+function role_privileges(): array {
+    return [
+        'Community Member' => [
+            'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
+            'confirm_own_resolved', 'reopen_own_resolved', 'submit_feedback',
+            'view_public_data', 'view_map', 'edit_own_profile',
+        ],
+        'Field Officer' => [
+            'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
+            'view_public_data', 'view_map', 'edit_own_profile',
+            'update_work_orders', 'upload_after_photo', 'complete_maintenance',
+            'view_assigned_tickets', 'post_official_comments', 'moderate_comments',
+        ],
+        'Administrator' => [
+            'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
+            'view_public_data', 'view_map', 'edit_own_profile',
+            'update_work_orders', 'upload_after_photo', 'complete_maintenance',
+            'view_assigned_tickets', 'post_official_comments', 'moderate_comments',
+            'manage_all_reports', 'assign_officers', 'escalate_reports', 'bulk_update_reports',
+            'delete_resolved_reports', 'manage_notices', 'manage_maintenance',
+            'manage_staff', 'change_user_roles', 'block_users',
+            'configure_sla', 'configure_support', 'view_audit_log', 'export_audit_csv',
+            'access_admin_dashboard', 'access_field_portal',
+        ],
+    ];
+}
+
+function user_can(array $user, string $privilege): bool {
+    $role = $user['role'] ?? 'Community Member';
+    return in_array($privilege, role_privileges()[$role] ?? [], true);
+}
+
+function login_lock_message(): ?string {
+    $until = (int)($_SESSION['login_lock_until'] ?? 0);
+    if ($until > time()) {
+        $mins = (int)ceil(($until - time()) / 60);
+        return "Too many attempts. Try again in {$mins} minute(s).";
+    }
+    return null;
+}
+
+function register_login_failure(): void {
+    $fails = (int)($_SESSION['login_fails'] ?? 0) + 1;
+    $_SESSION['login_fails'] = $fails;
+    if ($fails >= 5) {
+        $_SESSION['login_lock_until'] = time() + 600;
+        $_SESSION['login_fails'] = 0;
+    }
+}
+
+function clear_login_failures(): void {
+    unset($_SESSION['login_fails'], $_SESSION['login_lock_until']);
+}
+
+function register_attempt_blocked(): bool {
+    $windowStart = (int)($_SESSION['reg_window'] ?? 0);
+    if ($windowStart < time() - 3600) {
+        $_SESSION['reg_window'] = time();
+        $_SESSION['reg_count'] = 0;
+    }
+    return (int)($_SESSION['reg_count'] ?? 0) >= 5;
+}
+
+function register_attempt_tick(): void {
+    $_SESSION['reg_count'] = (int)($_SESSION['reg_count'] ?? 0) + 1;
+}
+
+function queue_outbound(string $channel, string $destination, string $subject, string $body): void {
+    if ($destination === '') {
+        return;
+    }
+    $stmt = db()->prepare('INSERT INTO outbound_messages (channel, destination, subject, body) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$channel, $destination, $subject, $body]);
+}
+
+function run_sla_sweep(string $actorName = 'SLA Scheduler', string $actorRole = 'System'): int {
+    $pdo = db();
+    $candidates = $pdo->query("SELECT * FROM reports WHERE status NOT IN ('Resolved', 'Rejected') AND escalated = 0")->fetchAll();
+    $nowTs = time();
+    $count = 0;
+    $nowLabel = date('Y-m-d H:i');
+    foreach ($candidates as $rep) {
+        $dlTs = strtotime($rep['sla_deadline'] ?? '');
+        if ($dlTs && $dlTs < $nowTs) {
+            $reason = "{$rep['priority']} priority fault exceeded SLA deadline ({$rep['sla_deadline']}).";
+            $pdo->prepare('UPDATE reports SET escalated = 1, escalation_reason = ? WHERE id = ?')->execute([$reason, $rep['id']]);
+            $pdo->prepare("INSERT INTO report_updates (report_id, timestamp_label, text, author, update_type) VALUES (?, ?, ?, 'SLA Escalation Engine', 'escalation')")
+                ->execute([$rep['id'], $nowLabel, "Auto-escalated by SLA sweep: $reason"]);
+            create_notification("SLA Escalated ({$rep['id']})", $reason, 'escalation', 'Administrator', $rep['id']);
+            $count++;
+        }
+    }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+        ->execute(['sla_last_sweep', date('Y-m-d H:i:s')]);
+    log_audit($actorName, $actorRole, 'Executed SLA Auto-Escalation Sweep', null, "Flagged $count overdue report(s).", 'escalation');
+    return $count;
+}
+
+function maybe_run_scheduled_sla(): void {
+    try {
+        $settings = get_portal_settings();
+        $last = strtotime($settings['sla_last_sweep'] ?? '') ?: 0;
+        if (time() - $last < 6 * 3600) {
+            return;
+        }
+        run_sla_sweep();
+    } catch (Throwable $e) {
+        // Scheduler must never break page render.
+    }
+}
+
 function e(?string $val): string {
     return htmlspecialchars((string)$val, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
@@ -86,6 +199,13 @@ function create_notification(string $title, string $message, string $type = 'inf
         'INSERT INTO notifications (title, message, notif_type, target_role, report_id) VALUES (?, ?, ?, ?, ?)'
     );
     $stmt->execute([$title, $message, $type, $targetRole, $reportId]);
+    $settings = get_portal_settings();
+    if (($settings['notify_email'] ?? '0') === '1') {
+        queue_outbound('email', (string)($settings['support_dispatch_email'] ?? 'works@roads.gov.ug'), $title, $message);
+    }
+    if (($settings['notify_sms'] ?? '0') === '1') {
+        queue_outbound('sms', (string)($settings['support_city_line'] ?? ''), $title, $message);
+    }
 }
 
 function haversine_meters(float $lat1, float $lng1, float $lat2, float $lng2): int {
@@ -288,10 +408,45 @@ function handle_photo_upload(string $fieldName): ?string {
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0775, true);
     }
-    $filename = 'fault_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    $filename = 'fault_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.jpg';
     $dest = $uploadDir . '/' . $filename;
-    if (move_uploaded_file($tmp, $dest)) {
+    if (compress_uploaded_image($tmp, $dest, $mime)) {
         return 'uploads/' . $filename;
     }
+    $fallback = 'fault_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    if (move_uploaded_file($tmp, $uploadDir . '/' . $fallback)) {
+        return 'uploads/' . $fallback;
+    }
     return null;
+}
+
+function compress_uploaded_image(string $tmp, string $dest, string $mime): bool {
+    $loader = match ($mime) {
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+        default => null,
+    };
+    if (!$loader || !function_exists($loader) || !function_exists('imagejpeg')) {
+        return false;
+    }
+    $src = @$loader($tmp);
+    if (!$src) {
+        return false;
+    }
+    $w = imagesx($src);
+    $h = imagesy($src);
+    $max = 1600;
+    if ($w > $max || $h > $max) {
+        $scale = $max / max($w, $h);
+        $nw = max(1, (int)round($w * $scale));
+        $nh = max(1, (int)round($h * $scale));
+        $resized = imagecreatetruecolor($nw, $nh);
+        imagecopyresampled($resized, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+        $src = $resized;
+    }
+    $ok = imagejpeg($src, $dest, 75);
+    imagedestroy($src);
+    return $ok;
 }

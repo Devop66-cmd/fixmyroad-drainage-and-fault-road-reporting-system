@@ -5,6 +5,10 @@
 $pageTitle = $pageTitle ?? 'FixMyRoad - Road & Drainage Fault Reporting System';
 $activePage = $activePage ?? '';
 $authUser = current_user();
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'lg'], true)) {
+    $_SESSION['lang'] = $_GET['lang'];
+}
+require_once __DIR__ . '/i18n.php';
 $portalSettings = get_portal_settings();
 
 if (!isset($_SESSION['dismissed_notices'])) {
@@ -33,6 +37,7 @@ if ($authUser) {
     $notifStmt = db()->prepare("SELECT COUNT(*) FROM notifications WHERE is_read = 0 AND (target_role = 'All' OR target_role = ?)");
     $notifStmt->execute([$authUser['role']]);
     $unreadCount = (int)$notifStmt->fetchColumn();
+    maybe_run_scheduled_sla();
 }
 
 $flash = flash_get();
@@ -59,7 +64,7 @@ $flash = flash_get();
     </a>
 
     <nav class="main-nav">
-      <a href="index.php" class="nav-link <?= $activePage === 'home' ? 'active' : '' ?>">Home</a>
+      <a href="index.php" class="nav-link <?= $activePage === 'home' ? 'active' : '' ?>"><?= e(t('home')) ?></a>
       <?php if ($authUser): ?>
         <?php if ($authUser['role'] === 'Administrator'): ?>
           <a href="admin_dashboard.php" class="nav-link <?= $activePage === 'admin' ? 'active' : '' ?>">Admin Center</a>
@@ -68,12 +73,12 @@ $flash = flash_get();
         <?php else: ?>
           <a href="dashboard.php" class="nav-link <?= $activePage === 'dashboard' ? 'active' : '' ?>">Dashboard</a>
         <?php endif; ?>
-        <a href="report_fault.php" class="nav-link <?= $activePage === 'report' ? 'active' : '' ?>">Report Fault</a>
+        <a href="report_fault.php" class="nav-link <?= $activePage === 'report' ? 'active' : '' ?>"><?= e(t('report')) ?></a>
         <a href="map_alerts.php" class="nav-link <?= $activePage === 'map' ? 'active' : '' ?>">
           Live Map &amp; Alerts<?= $unreadCount > 0 ? ' (' . $unreadCount . ')' : '' ?>
         </a>
       <?php endif; ?>
-      <a href="public_data.php" class="nav-link <?= $activePage === 'public' ? 'active' : '' ?>">Public Data</a>
+      <a href="public_data.php" class="nav-link <?= $activePage === 'public' ? 'active' : '' ?>"><?= e(t('public')) ?></a>
     </nav>
 
     <div class="header-actions">
@@ -82,11 +87,13 @@ $flash = flash_get();
           <span><?= e($authUser['name']) ?></span>
           <span class="text-muted">· <?= e($authUser['role']) ?></span>
         </a>
-        <a href="logout.php" class="btn btn-dark">Sign Out</a>
+        <a href="logout.php" class="btn btn-dark"><?= e(t('signout')) ?></a>
       <?php else: ?>
-        <a href="login.php" class="btn btn-outline">Sign In</a>
-        <a href="register.php" class="btn btn-primary">Register</a>
+        <a href="login.php" class="btn btn-outline"><?= e(t('signin')) ?></a>
+        <a href="register.php" class="btn btn-primary"><?= e(t('register')) ?></a>
       <?php endif; ?>
+      <?php $lang = $_SESSION['lang'] ?? 'en'; ?>
+      <a href="?<?= e(http_build_query(array_merge($_GET, ['lang' => $lang === 'lg' ? 'en' : 'lg']))) ?>" class="btn btn-outline btn-sm"><?= $lang === 'lg' ? 'English' : 'Luganda' ?></a>
     </div>
   </div>
 </header>

@@ -4,11 +4,53 @@
  * Default XAMPP credentials: host = localhost, user = root, password = ""
  */
 
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'fixmyroad_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('DB_NAME') ?: 'fixmyroad_db');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') !== false ? (string)getenv('DB_PASS') : '');
 define('DB_CHARSET', 'utf8mb4');
+
+function ensure_schema(PDO $pdo): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS password_resets (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(160) NOT NULL,
+        token_hash CHAR(64) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used_at DATETIME DEFAULT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_reset_email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS outbound_messages (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        channel ENUM('email','sms') NOT NULL,
+        destination VARCHAR(180) NOT NULL,
+        subject VARCHAR(180) NOT NULL,
+        body TEXT NOT NULL,
+        status ENUM('queued','sent','failed') NOT NULL DEFAULT 'queued',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $col = $pdo->query("SHOW COLUMNS FROM report_comments LIKE 'hidden'")->fetch();
+    if (!$col) {
+        $pdo->exec("ALTER TABLE report_comments ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0 AFTER is_official_question");
+    }
+
+    $seed = $pdo->prepare('INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)');
+    foreach ([
+        'sla_last_sweep' => '2000-01-01 00:00:00',
+        'notify_email' => '0',
+        'notify_sms' => '0',
+    ] as $k => $v) {
+        $seed->execute([$k, $v]);
+    }
+}
 
 function db(): PDO {
     static $pdo = null;
@@ -23,6 +65,7 @@ function db(): PDO {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+        ensure_schema($pdo);
         return $pdo;
     } catch (PDOException $e) {
         http_response_code(500);

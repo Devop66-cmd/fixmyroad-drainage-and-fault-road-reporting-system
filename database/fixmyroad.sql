@@ -112,6 +112,7 @@ CREATE TABLE `report_comments` (
   `author_role` ENUM('Community Member', 'Field Officer', 'Administrator') NOT NULL DEFAULT 'Community Member',
   `text` TEXT NOT NULL,
   `is_official_question` TINYINT(1) NOT NULL DEFAULT 0,
+  `hidden` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `fk_comment_report` FOREIGN KEY (`report_id`) REFERENCES `reports` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

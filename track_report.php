@@ -62,6 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('track_report.php?id=' . urlencode($reportId));
     }
 
+    if ($action === 'hide_comment' && in_array($actor['role'], ['Administrator', 'Field Officer'], true)) {
+        $commentId = (int)($_POST['comment_id'] ?? 0);
+        $pdo->prepare('UPDATE report_comments SET hidden = 1 WHERE id = ? AND report_id = ?')->execute([$commentId, $reportId]);
+        log_audit($actor['name'], $actor['role'], 'Hid Report Comment', $reportId, "Comment #$commentId hidden.", 'report');
+        flash_set('success', 'Comment hidden from the public thread.');
+        redirect_to('track_report.php?id=' . urlencode($reportId));
+    }
+
     if ($action === 'submit_feedback' && $report['status'] === 'Resolved') {
         $rating = max(1, min(5, (int)($_POST['rating'] ?? 5)));
         $comment = trim((string)($_POST['feedback_comment'] ?? ''));
@@ -77,8 +85,9 @@ $updatesStmt = $pdo->prepare('SELECT * FROM report_updates WHERE report_id = ? O
 $updatesStmt->execute([$reportId]);
 $updates = $updatesStmt->fetchAll();
 
-$commentsStmt = $pdo->prepare('SELECT * FROM report_comments WHERE report_id = ? ORDER BY id ASC');
-$commentsStmt->execute([$reportId]);
+$isModerator = $user && in_array($user['role'], ['Administrator', 'Field Officer'], true);
+$commentsStmt = $pdo->prepare('SELECT * FROM report_comments WHERE report_id = ? AND (hidden = 0 OR ? = 1) ORDER BY id ASC');
+$commentsStmt->execute([$reportId, $isModerator ? 1 : 0]);
 $comments = $commentsStmt->fetchAll();
 
 $sla = get_sla_status($report);
@@ -187,7 +196,15 @@ require_once __DIR__ . '/includes/header.php';
                 <strong style="color:var(--text-main);"><?= e($c['author_name']) ?> · <?= e($c['author_role']) ?></strong>
                 <span class="tabular-nums"><?= e($c['created_at']) ?></span>
               </div>
-              <p class="text-xs"><?= e($c['text']) ?></p>
+              <p class="text-xs"><?= !empty($c['hidden']) ? '<em>Hidden from residents. </em>' : '' ?><?= e($c['text']) ?></p>
+              <?php if ($isModerator && empty($c['hidden'])): ?>
+                <form method="POST">
+                  <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="hide_comment">
+                  <input type="hidden" name="comment_id" value="<?= (int)$c['id'] ?>">
+                  <button type="submit" class="btn btn-danger-outline btn-sm">Hide comment</button>
+                </form>
+              <?php endif; ?>
             </div>
           <?php endforeach; ?>
         </div>
