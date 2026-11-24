@@ -2,7 +2,7 @@
 
 Diploma project prototype (Kampala International University, SOMAC, October 2026).
 
-**Team:** Nabaale Aliha (2025-01-33934), Chamjowk Obyeny George (2025-01-33757), Ipavu Roy Francis (2025-01-34217)  
+**Team:** Nabaale Aisha (2025-01-33934), Chamjowk Obyeny George (2025-01-33757), Ipavu Roy Francis (2025-01-34217)  
 **Supervisor:** Mr. Niyonkuru Steven
 
 Plain PHP 8 and MySQL (XAMPP). The research text mentions Laravel; this pilot uses plain PHP so it runs in XAMPP without Composer.
