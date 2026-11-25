@@ -38,19 +38,4 @@ See [README_XAMPP.md](README_XAMPP.md). Import `database/fixmyroad.sql`. On the 
 
 Optional environment variables: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`.
 
-## Extra features (beyond the research minimum)
 
-- Password reset (`forgot.php`). On XAMPP the link is shown on screen and queued as email. There is no live SMTP server.
-- Email and SMS outbox. Turn them on under Admin, Support. Messages are stored in `outbound_messages`. They are not sent to a gateway.
-- Login lock after 5 failures (10 minutes) and a registration cap per browser session.
-- Photo resize to 1600px JPEG when PHP GD is available.
-- `uploads/.htaccess` blocks PHP execution.
-- Comment hide for officers and administrators.
-- Bulk status or officer update on the reports tab.
-- SLA sweep every 6 hours on page load, manual button, or `php scripts/sla_sweep.php`.
-- English / Luganda toggle for the main navigation.
-- Role checks: `php tests/privileges_test.php`.
-
-## Limitations
-
-No live email or SMS provider, no native app, Kansanga geofence only, English plus a small Luganda navigation set, and no automated usability study inside the software.
