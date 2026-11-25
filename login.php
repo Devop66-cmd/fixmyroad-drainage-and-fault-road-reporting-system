@@ -2,11 +2,7 @@
 require_once __DIR__ . '/includes/auth.php';
 
 if ($existing = current_user()) {
-    $target = match ($existing['role']) {
-        'Administrator' => 'admin_dashboard.php',
-        'Field Officer' => 'field_officer.php',
-        default => 'dashboard.php',
-    };
+    $target = role_home($existing['role']);
     redirect_to($target);
 }
 
@@ -39,11 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             log_audit($user['name'], $user['role'], 'Signed In (XAMPP Session)', $user['id'], 'Authenticated via PHP MySQL login.', 'auth');
 
-            $dest = match ($user['role']) {
-                'Administrator' => 'admin_dashboard.php',
-                'Field Officer' => 'field_officer.php',
-                default => 'dashboard.php',
-            };
+            $dest = role_home($user['role']);
             redirect_to($dest);
         }
     }

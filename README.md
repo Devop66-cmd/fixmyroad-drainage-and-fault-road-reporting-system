@@ -9,15 +9,20 @@ Plain PHP 8 and MySQL (XAMPP). The research text mentions Laravel; this pilot us
 
 ## Roles
 
-| Privilege | Community Member | Field Officer | Administrator |
-|---|---|---|---|
-| Report faults, own tickets, upvotes, 48-hour confirmation | Yes | Report and view | Yes |
-| Update work orders and maintenance | No | Yes | Yes |
-| Hide comments | No | Yes | Yes |
-| Dispatch, notices, SLA, audit, bulk update | No | No | Yes |
-| Assign or remove roles | No | No | Yes |
+| Role | What they can do |
+|---|---|
+| Community Member | Report faults inside Kansanga, follow tickets, upvote, confirm repairs |
+| Field Officer | Update assigned work orders and maintenance, hide comments |
+| Supervisor | Assign crews, escalate, bulk-update reports, run the SLA sweep. Cannot manage staff or delete accounts |
+| Page Moderator | Publish and archive official notices, hide comments. Cannot dispatch repairs |
+| Administrator | Full access, including assigning and removing roles |
 
-The primary administrator (`admin@roads.gov.ug`) cannot be deleted or reassigned.
+Only an administrator can change roles. The primary administrator (`admin@roads.gov.ug`) cannot be deleted or reassigned.
+
+Extra demo accounts (created on first page load if missing), password `password123`:
+
+- Supervisor: `supervisor@roads.gov.ug`
+- Page Moderator: `moderator@roads.gov.ug`
 
 ## Demo accounts
 

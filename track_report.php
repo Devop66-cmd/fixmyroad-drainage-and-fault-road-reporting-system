@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('track_report.php?id=' . urlencode($reportId));
     }
 
-    if ($action === 'hide_comment' && in_array($actor['role'], ['Administrator', 'Field Officer'], true)) {
+    if ($action === 'hide_comment' && user_can($actor, 'moderate_comments')) {
         $commentId = (int)($_POST['comment_id'] ?? 0);
         $pdo->prepare('UPDATE report_comments SET hidden = 1 WHERE id = ? AND report_id = ?')->execute([$commentId, $reportId]);
         log_audit($actor['name'], $actor['role'], 'Hid Report Comment', $reportId, "Comment #$commentId hidden.", 'report');
@@ -123,7 +123,7 @@ $updatesStmt = $pdo->prepare('SELECT * FROM report_updates WHERE report_id = ? O
 $updatesStmt->execute([$reportId]);
 $updates = $updatesStmt->fetchAll();
 
-$isModerator = $user && in_array($user['role'], ['Administrator', 'Field Officer'], true);
+$isModerator = $user && user_can($user, 'moderate_comments');
 $commentsStmt = $pdo->prepare('SELECT * FROM report_comments WHERE report_id = ? AND (hidden = 0 OR ? = 1) ORDER BY id ASC');
 $commentsStmt->execute([$reportId, $isModerator ? 1 : 0]);
 $comments = $commentsStmt->fetchAll();

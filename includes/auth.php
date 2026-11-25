@@ -45,11 +45,7 @@ function require_role(array $allowedRoles): array {
     $user = require_login();
     if (!in_array($user['role'], $allowedRoles, true)) {
         flash_set('error', 'Access denied: your account role cannot access that area.');
-        $target = match ($user['role']) {
-            'Administrator' => 'admin_dashboard.php',
-            'Field Officer' => 'field_officer.php',
-            default => 'dashboard.php',
-        };
+        $target = role_home($user['role']);
         redirect_to($target);
     }
     return $user;

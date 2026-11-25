@@ -66,8 +66,10 @@ $flash = flash_get();
     <nav class="main-nav">
       <a href="index.php" class="nav-link <?= $activePage === 'home' ? 'active' : '' ?>"><?= e(t('home')) ?></a>
       <?php if ($authUser): ?>
-        <?php if ($authUser['role'] === 'Administrator'): ?>
-          <a href="admin_dashboard.php" class="nav-link <?= $activePage === 'admin' ? 'active' : '' ?>">Admin Center</a>
+        <?php if (in_array($authUser['role'], ['Administrator', 'Supervisor', 'Page Moderator'], true)): ?>
+          <a href="<?= e(role_home($authUser['role'])) ?>" class="nav-link <?= $activePage === 'admin' ? 'active' : '' ?>">
+            <?= $authUser['role'] === 'Page Moderator' ? 'Moderation' : ($authUser['role'] === 'Supervisor' ? 'Supervision' : 'Admin Center') ?>
+          </a>
         <?php elseif ($authUser['role'] === 'Field Officer'): ?>
           <a href="field_officer.php" class="nav-link <?= $activePage === 'officer' ? 'active' : '' ?>">Work Orders</a>
         <?php else: ?>

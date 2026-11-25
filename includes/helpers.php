@@ -10,7 +10,7 @@ const KANSANGA_MAX_LAT = 0.298;
 const KANSANGA_MIN_LNG = 32.594;
 const KANSANGA_MAX_LNG = 32.624;
 
-const SYSTEM_ROLES = ['Community Member', 'Field Officer', 'Administrator'];
+const SYSTEM_ROLES = ['Community Member', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator'];
 
 function role_privileges(): array {
     return [
@@ -24,6 +24,16 @@ function role_privileges(): array {
             'view_public_data', 'view_map', 'edit_own_profile',
             'update_work_orders', 'upload_after_photo', 'complete_maintenance',
             'view_assigned_tickets', 'post_official_comments', 'moderate_comments',
+        ],
+        'Supervisor' => [
+            'report_fault', 'view_own_reports', 'view_community_feed', 'view_public_data', 'view_map',
+            'edit_own_profile', 'update_work_orders', 'view_assigned_tickets',
+            'manage_all_reports', 'assign_officers', 'escalate_reports', 'bulk_update_reports',
+            'manage_maintenance', 'configure_sla', 'access_admin_dashboard', 'access_field_portal',
+        ],
+        'Page Moderator' => [
+            'view_public_data', 'view_map', 'edit_own_profile',
+            'moderate_comments', 'manage_notices', 'access_admin_dashboard',
         ],
         'Administrator' => [
             'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
@@ -42,6 +52,36 @@ function role_privileges(): array {
 function user_can(array $user, string $privilege): bool {
     $role = $user['role'] ?? 'Community Member';
     return in_array($privilege, role_privileges()[$role] ?? [], true);
+}
+
+function role_home(string $role): string {
+    return match ($role) {
+        'Administrator' => 'admin_dashboard.php',
+        'Supervisor' => 'admin_dashboard.php?tab=reports',
+        'Page Moderator' => 'admin_dashboard.php?tab=notices',
+        'Field Officer' => 'field_officer.php',
+        default => 'dashboard.php',
+    };
+}
+
+function tabs_for_role(string $role): array {
+    return match ($role) {
+        'Administrator' => ['dashboard', 'reports', 'notices', 'maintenance', 'workload', 'staff', 'sla', 'support', 'audit'],
+        'Supervisor' => ['dashboard', 'reports', 'maintenance', 'workload', 'sla'],
+        'Page Moderator' => ['notices'],
+        default => [],
+    };
+}
+
+function action_allowed_for_role(string $role, string $action): bool {
+    if ($role === 'Administrator') {
+        return true;
+    }
+    $allowed = [
+        'Supervisor' => ['update_report', 'bulk_update_reports', 'create_maintenance', 'update_maintenance_status', 'run_sla_sweep'],
+        'Page Moderator' => ['create_notice', 'update_notice_expiry', 'toggle_notice_archive', 'delete_notice'],
+    ];
+    return in_array($action, $allowed[$role] ?? [], true);
 }
 
 function login_lock_message(): ?string {

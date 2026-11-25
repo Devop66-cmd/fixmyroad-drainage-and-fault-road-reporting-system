@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
-$user = require_role(['Field Officer', 'Administrator']);
+$user = require_role(['Field Officer', 'Supervisor', 'Administrator']);
 $pdo = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -50,6 +50,16 @@ function ensure_schema(PDO $pdo): void {
     ] as $k => $v) {
         $seed->execute([$k, $v]);
     }
+
+    $roleEnum = "ENUM('Community Member','Field Officer','Supervisor','Page Moderator','Administrator')";
+    $pdo->exec("ALTER TABLE users MODIFY role $roleEnum NOT NULL DEFAULT 'Community Member'");
+    $pdo->exec("ALTER TABLE report_comments MODIFY author_role $roleEnum NOT NULL DEFAULT 'Community Member'");
+    $pdo->exec("ALTER TABLE notifications MODIFY target_role ENUM('All','Community Member','Field Officer','Supervisor','Page Moderator','Administrator') NOT NULL DEFAULT 'All'");
+
+    $hash = password_hash('password123', PASSWORD_DEFAULT);
+    $add = $pdo->prepare("INSERT IGNORE INTO users (id, name, email, password_hash, phone, role, division, street_address, account_status) VALUES (?, ?, ?, ?, ?, ?, 'Kansanga (Makindye)', ?, 'active')");
+    $add->execute(['usr-4', 'James Okello', 'supervisor@roads.gov.ug', $hash, '+256 700 100 004', 'Supervisor', 'Makindye Works Office']);
+    $add->execute(['usr-5', 'Amina Nabirye', 'moderator@roads.gov.ug', $hash, '+256 700 100 005', 'Page Moderator', 'Kansanga Parish']);
 }
 
 function db(): PDO {

@@ -100,8 +100,8 @@ require_once __DIR__ . '/includes/header.php';
         <a href="public_data.php" class="sidebar-link"><span>Public Transparency</span></a>
         <a href="profile.php" class="sidebar-link"><span>Profile &amp; Hero Badges</span></a>
 
-        <?php if ($user['role'] === 'Administrator'): ?>
-          <a href="admin_dashboard.php" class="sidebar-link" style="color:#fbbf24;"><span>Admin Control Center →</span></a>
+        <?php if (in_array($user['role'], ['Administrator', 'Supervisor', 'Page Moderator'], true)): ?>
+          <a href="<?= e(role_home($user['role'])) ?>" class="sidebar-link" style="color:#fbbf24;"><span><?= e($user['role']) ?> desk →</span></a>
         <?php elseif ($user['role'] === 'Field Officer'): ?>
           <a href="field_officer.php" class="sidebar-link" style="color:#34d399;"><span>Field Officer Portal →</span></a>
         <?php endif; ?>

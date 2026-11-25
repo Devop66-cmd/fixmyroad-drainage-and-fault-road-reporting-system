@@ -1,12 +1,16 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
-$user = require_role(['Administrator']);
+$user = require_role(['Administrator', 'Supervisor', 'Page Moderator']);
 $pdo = db();
 
 // ---------------------------------------------------------------------------
 // 1. Handle CSV Export BEFORE any HTML output
 // ---------------------------------------------------------------------------
 if (isset($_GET['export']) && $_GET['export'] === 'audit_csv') {
+    if ($user['role'] !== 'Administrator') {
+        flash_set('error', 'Only an administrator can export the audit log.');
+        redirect_to(role_home($user['role']));
+    }
     $catFilter = trim((string)($_GET['audit_cat'] ?? 'All'));
     $qFilter = trim((string)($_GET['audit_q'] ?? ''));
 
@@ -37,10 +41,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'audit_csv') {
 // ---------------------------------------------------------------------------
 // 2. Handle POST Actions
 // ---------------------------------------------------------------------------
-$activeTab = trim((string)($_GET['tab'] ?? 'dashboard'));
-$validTabs = ['dashboard', 'reports', 'notices', 'maintenance', 'workload', 'staff', 'sla', 'support', 'audit'];
+$activeTab = trim((string)($_GET['tab'] ?? ''));
+$validTabs = tabs_for_role($user['role']);
 if (!in_array($activeTab, $validTabs, true)) {
-    $activeTab = 'dashboard';
+    $activeTab = $validTabs[0];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -48,7 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $returnTab = trim((string)($_POST['return_tab'] ?? $activeTab));
     if (!in_array($returnTab, $validTabs, true)) {
-        $returnTab = 'dashboard';
+        $returnTab = $validTabs[0];
+    }
+    if (!action_allowed_for_role($user['role'], $action)) {
+        flash_set('error', 'Your role cannot perform that action.');
+        redirect_to('admin_dashboard.php?tab=' . urlencode($returnTab));
     }
 
     if ($action === 'update_report') {
@@ -495,7 +503,7 @@ require_once __DIR__ . '/includes/header.php';
   <aside class="sidebar">
     <div>
       <div class="sidebar-header">
-        <div class="sidebar-role sidebar-role--admin">Admin Control Center</div>
+        <div class="sidebar-role sidebar-role--admin"><?= e($user['role']) ?></div>
         <div class="sidebar-user"><?= e($user['name']) ?></div>
         <div class="sidebar-sub">Kansanga · Makindye Division</div>
       </div>
@@ -514,6 +522,9 @@ require_once __DIR__ . '/includes/header.php';
             ['audit', 'System Audit Log', count($auditLogs)],
         ];
         foreach ($navItems as [$tabKey, $label, $badge]):
+          if (!in_array($tabKey, $validTabs, true)) {
+              continue;
+          }
         ?>
           <a href="admin_dashboard.php?tab=<?= $tabKey ?>" class="sidebar-link <?= $activeTab === $tabKey ? 'active' : '' ?>">
             <span><?= e($label) ?></span>
@@ -527,7 +538,9 @@ require_once __DIR__ . '/includes/header.php';
 
     <div class="sidebar-footer">
       <a href="dashboard.php?scope=all" class="btn btn-outline btn-full" style="background:#1e293b; border-color:#334155; color:#ffffff;">View Citizen Feed</a>
+      <?php if (in_array($user['role'], ['Administrator', 'Supervisor'], true)): ?>
       <a href="field_officer.php" class="btn btn-outline btn-full" style="background:transparent; border-color:#334155; color:#cbd5e1;">Field Officer View</a>
+      <?php endif; ?>
     </div>
   </aside>
 
@@ -987,7 +1000,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php elseif ($activeTab === 'staff'): ?>
       <div>
         <h1 class="page-title">Staff Provisioning and Role Management</h1>
-        <p class="page-subtitle">Three roles: Community Member, Field Officer, and Administrator. Assign or remove a role except on the protected primary administrator.</p>
+        <p class="page-subtitle">Five roles: Community Member, Field Officer, Supervisor, Page Moderator, and Administrator. Only an administrator can assign or remove a role.</p>
       </div>
 
       <form method="POST" class="card stack-md">
@@ -999,9 +1012,11 @@ require_once __DIR__ . '/includes/header.php';
           <input name="email" type="email" required placeholder="officer@roads.gov.ug" class="form-control">
           <input name="phone" type="text" placeholder="+256 7XX XXX XXX" class="form-control">
           <select name="role" class="form-control">
-            <option value="Field Officer">Field Officer</option>
+            <?php foreach (SYSTEM_ROLES as $roleOpt): ?>
+              <?php if ($roleOpt === 'Administrator') continue; ?>
+              <option value="<?= e($roleOpt) ?>"><?= e($roleOpt) ?></option>
+            <?php endforeach; ?>
             <option value="Administrator">Administrator</option>
-            <option value="Community Member">Community Member</option>
           </select>
           <select name="division" class="form-control">
             <option>Kansanga (Makindye)</option>
