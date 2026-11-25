@@ -217,50 +217,36 @@ function haversine_meters(float $lat1, float $lng1, float $lat2, float $lng2): i
     return (int)round($earthRadius * $c);
 }
 
+function kansanga_pin_inside(?float $lat, ?float $lng): bool {
+    return $lat !== null && $lng !== null
+        && $lat >= KANSANGA_MIN_LAT && $lat <= KANSANGA_MAX_LAT
+        && $lng >= KANSANGA_MIN_LNG && $lng <= KANSANGA_MAX_LNG;
+}
+
 function validate_kansanga_boundary(?float $lat, ?float $lng, string $location): array {
     $loc = strtolower($location);
     $dist = ($lat !== null && $lng !== null)
         ? haversine_meters(KANSANGA_CENTER_LAT, KANSANGA_CENTER_LNG, $lat, $lng)
         : 0;
 
-    $hasKansangaKeyword = str_contains($loc, 'kansanga')
-        || str_contains($loc, 'kiwafu')
-        || str_contains($loc, 'nabutiti')
-        || str_contains($loc, 'kiu')
-        || str_contains($loc, 'kampala international')
-        || str_contains($loc, 'ggaba')
-        || str_contains($loc, 'konge');
+    if (!kansanga_pin_inside($lat, $lng)) {
+        return [
+            'valid' => false,
+            'reason' => 'Reports are limited to Kansanga, Makindye Division, Kampala. Place the pin inside the blue boundary on the map.',
+        ];
+    }
 
-    $outsideKeywords = ['kololo', 'nakawa', 'ntinda', 'bugolobi', 'kawempe', 'makerere', 'mengo', 'rubaga', 'entebbe', 'wakiso'];
+    $outsideKeywords = ['kololo', 'nakawa', 'ntinda', 'bugolobi', 'kawempe', 'makerere', 'mengo', 'rubaga', 'entebbe', 'wakiso', 'najjera', 'kira', 'bweyogerere'];
     foreach ($outsideKeywords as $kw) {
-        if (str_contains($loc, $kw) && !$hasKansangaKeyword) {
+        if (str_contains($loc, $kw)) {
             return [
                 'valid' => false,
-                'reason' => "Location \"$location\" appears to be outside the active Kansanga, Makindye Division pilot zone.",
+                'reason' => "Location \"$location\" is outside the Kansanga, Kampala pilot. Expansion to other areas is not open yet.",
             ];
         }
     }
 
-    if ($lat !== null && $lng !== null) {
-        $inBox = $lat >= KANSANGA_MIN_LAT && $lat <= KANSANGA_MAX_LAT
-            && $lng >= KANSANGA_MIN_LNG && $lng <= KANSANGA_MAX_LNG;
-        if (!$inBox) {
-            return [
-                'valid' => false,
-                'reason' => sprintf(
-                    'Selected GPS pin (%.4f, %.4f) is %dm from Kansanga center and outside the active Kansanga service boundary.',
-                    $lat,
-                    $lng,
-                    $dist
-                ),
-            ];
-        }
-        return ['valid' => true, 'distance' => $dist];
-    }
-
-    return $hasKansangaKeyword
-        ? ['valid' => true, 'distance' => $dist]
-        : ['valid' => false, 'reason' => 'Please enter a street location inside Kansanga, Makindye Division.'];
+    return ['valid' => true, 'distance' => $dist];
 }
 
 function compute_sla_deadline(string $dateStr, string $priority): string {

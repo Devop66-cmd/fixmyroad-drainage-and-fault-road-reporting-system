@@ -141,6 +141,7 @@ require_once __DIR__ . '/includes/header.php';
       <div class="grid-3">
         <div>
           <label class="form-label">Street / Landmark (Kansanga)</label>
+          <p class="text-xs text-muted">Pilot area only: Kansanga, Makindye Division, Kampala. Pins outside the blue box are rejected.</p>
           <input id="locationInput" name="location" type="text" required
                  value="<?= e($_POST['location'] ?? 'Kansanga Junction (Ggaba Rd), Makindye Division') ?>" class="form-control">
         </div>
@@ -188,23 +189,54 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
   if (typeof L === 'undefined') return;
+  const BOUNDS = { minLat: 0.272, maxLat: 0.298, minLng: 32.594, maxLng: 32.624 };
+  function insideKansanga(lat, lng) {
+    return lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat && lng >= BOUNDS.minLng && lng <= BOUNDS.maxLng;
+  }
   const lat0 = parseFloat(document.getElementById('latInput').value) || 0.2835;
   const lng0 = parseFloat(document.getElementById('lngInput').value) || 32.6095;
-  const map = L.map('faultMap').setView([lat0, lng0], 15);
+  const start = insideKansanga(lat0, lng0) ? [lat0, lng0] : [0.2835, 32.6095];
+  const map = L.map('faultMap', {
+    maxBounds: [[0.26, 32.58], [0.31, 32.64]],
+    maxBoundsViscosity: 0.9
+  }).setView(start, 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
-  L.rectangle([[0.272, 32.594], [0.298, 32.624]], { color: '#2563eb', weight: 1.5, fillOpacity: 0.06 }).addTo(map);
-  const marker = L.marker([lat0, lng0], { draggable: true }).addTo(map);
+  const fence = [[BOUNDS.minLat, BOUNDS.minLng], [BOUNDS.maxLat, BOUNDS.maxLng]];
+  L.rectangle(fence, { color: '#2563eb', weight: 1.5, fillOpacity: 0.06 }).addTo(map);
+  const marker = L.marker(start, { draggable: true }).addTo(map);
   window._faultMap = map;
   window._faultMarker = marker;
+  document.getElementById('latInput').value = start[0].toFixed(6);
+  document.getElementById('lngInput').value = start[1].toFixed(6);
+  function rejectPin() {
+    marker.setLatLng(start);
+    alert('That point is outside Kansanga, Kampala. Reports are limited to the blue boundary for now.');
+  }
   marker.on('dragend', () => {
     const p = marker.getLatLng();
+    if (!insideKansanga(p.lat, p.lng)) {
+      rejectPin();
+      return;
+    }
     document.getElementById('latInput').value = p.lat.toFixed(6);
     document.getElementById('lngInput').value = p.lng.toFixed(6);
   });
   map.on('click', (e) => {
+    if (!insideKansanga(e.latlng.lat, e.latlng.lng)) {
+      rejectPin();
+      return;
+    }
     marker.setLatLng(e.latlng);
     document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
     document.getElementById('lngInput').value = e.latlng.lng.toFixed(6);
+  });
+  document.querySelector('form')?.addEventListener('submit', (ev) => {
+    const lat = parseFloat(document.getElementById('latInput').value);
+    const lng = parseFloat(document.getElementById('lngInput').value);
+    if (!insideKansanga(lat, lng)) {
+      ev.preventDefault();
+      rejectPin();
+    }
   });
 });
 </script>
