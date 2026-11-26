@@ -106,6 +106,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('track_report.php?id=' . urlencode($reportId));
     }
 
+    if ($action === 'restore_comment' && user_can($actor, 'moderate_comments')) {
+        $commentId = (int)($_POST['comment_id'] ?? 0);
+        $pdo->prepare('UPDATE report_comments SET hidden = 0 WHERE id = ? AND report_id = ?')->execute([$commentId, $reportId]);
+        log_audit($actor['name'], $actor['role'], 'Restored Report Comment', $reportId, "Comment #$commentId restored.", 'report');
+        flash_set('success', 'Comment restored to the public thread.');
+        redirect_to('track_report.php?id=' . urlencode($reportId));
+    }
+
     if ($action === 'submit_feedback' && $report['status'] === 'Resolved') {
         $rating = max(1, min(5, (int)($_POST['rating'] ?? 5)));
         $comment = trim((string)($_POST['feedback_comment'] ?? ''));
@@ -233,13 +241,20 @@ require_once __DIR__ . '/includes/header.php';
                 <strong style="color:var(--text-main);"><?= e($c['author_name']) ?> · <?= e($c['author_role']) ?></strong>
                 <span class="tabular-nums"><?= e($c['created_at']) ?></span>
               </div>
-              <p class="text-xs"><?= !empty($c['hidden']) ? '<em>Hidden from residents. </em>' : '' ?><?= e($c['text']) ?></p>
+              <p class="text-xs"><?= !empty($c['hidden']) ? '<em>' . e(t('hidden_note')) . ' </em>' : '' ?><?= e($c['text']) ?></p>
               <?php if ($isModerator && empty($c['hidden'])): ?>
                 <form method="POST">
                   <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
                   <input type="hidden" name="action" value="hide_comment">
                   <input type="hidden" name="comment_id" value="<?= (int)$c['id'] ?>">
-                  <button type="submit" class="btn btn-danger-outline btn-sm">Hide comment</button>
+                  <button type="submit" class="btn btn-danger-outline btn-sm"><?= e(t('hide_comment')) ?></button>
+                </form>
+              <?php elseif ($isModerator): ?>
+                <form method="POST">
+                  <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="restore_comment">
+                  <input type="hidden" name="comment_id" value="<?= (int)$c['id'] ?>">
+                  <button type="submit" class="btn btn-outline btn-sm"><?= e(t('restore_comment')) ?></button>
                 </form>
               <?php endif; ?>
             </div>

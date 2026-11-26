@@ -37,6 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nowLabel = date('Y-m-d H:i');
             $slaDeadline = compute_sla_deadline($nowLabel, $priority);
             $photoPath = handle_photo_upload('photo');
+            if (!empty($_FILES['photo']['name']) && $photoPath === null) {
+                $error = upload_error() ?? 'Photo could not be saved. Use JPG, PNG, or WebP under 5MB.';
+            } else {
 
             $ins = $pdo->prepare(
                 "INSERT INTO reports (id, title, category, description, location, area, lat, lng, priority, status, reported_by, reported_by_email, report_date, sla_deadline, upvotes, before_photo)
@@ -73,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             flash_set('success', "Fault report $newId submitted! (+10 Hero Points awarded)");
             redirect_to('track_report.php?id=' . urlencode($newId));
+            }
         }
     }
 }
@@ -99,23 +103,23 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
 
     <div class="form-group">
-      <label class="form-label">Fault Title</label>
+      <label class="form-label"><?= e(t('title')) ?></label>
       <input name="title" type="text" required minlength="4" value="<?= e($_POST['title'] ?? '') ?>"
              placeholder="e.g., Collapsed culvert edge on Kiwafu Road" class="form-control">
     </div>
 
     <div class="grid-2">
       <div class="form-group">
-        <label class="form-label">Fault Category</label>
+        <label class="form-label"><?= e(t('category')) ?></label>
         <select name="category" class="form-control">
           <?php foreach (['Pothole', 'Blocked Drainage', 'Flooding', 'Damaged Road', 'Broken Streetlight', 'Other'] as $cat): ?>
-            <option value="<?= e($cat) ?>" <?= ($_POST['category'] ?? '') === $cat ? 'selected' : '' ?>><?= e($cat) ?></option>
+            <option value="<?= e($cat) ?>" <?= ($_POST['category'] ?? '') === $cat ? 'selected' : '' ?>><?= e(t_category($cat)) ?></option>
           <?php endforeach; ?>
         </select>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Severity / Priority</label>
+        <label class="form-label"><?= e(t('priority')) ?></label>
         <select name="priority" class="form-control">
           <?php foreach (['Medium', 'High', 'Urgent', 'Low'] as $prio): ?>
             <option value="<?= e($prio) ?>" <?= ($_POST['priority'] ?? 'Medium') === $prio ? 'selected' : '' ?>><?= e($prio) ?></option>
@@ -127,7 +131,7 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Interactive Kansanga Map Picker -->
     <div class="stack-sm">
       <div class="row-between">
-        <label class="form-label" style="margin:0;">Pin Fault Location (Click Map or Choose Kansanga Hotspot)</label>
+        <label class="form-label" style="margin:0;"><?= e(t('pin_label')) ?></label>
         <div class="flex-wrap-gap">
           <button type="button" onclick="setPin(0.2835, 32.6095, 'Kansanga Junction (Ggaba Rd), Makindye')" class="btn btn-outline btn-sm">Kansanga Junction</button>
           <button type="button" onclick="setPin(0.2869, 32.6078, 'Kiwafu Road, Kansanga, Makindye')" class="btn btn-outline btn-sm">Kiwafu Road</button>
@@ -140,18 +144,18 @@ require_once __DIR__ . '/includes/header.php';
 
       <div class="grid-3">
         <div>
-          <label class="form-label">Street / Landmark (Kansanga)</label>
-          <p class="text-xs text-muted">Pilot area only: Kansanga, Makindye Division, Kampala. Pins outside the blue box are rejected.</p>
+          <label class="form-label"><?= e(t('street')) ?></label>
+          <p class="text-xs text-muted"><?= e(t('street_help')) ?></p>
           <input id="locationInput" name="location" type="text" required
                  value="<?= e($_POST['location'] ?? 'Kansanga Junction (Ggaba Rd), Makindye Division') ?>" class="form-control">
         </div>
         <div>
-          <label class="form-label">Latitude</label>
+          <label class="form-label"><?= e(t('latitude')) ?></label>
           <input id="latInput" name="lat" type="number" step="0.000001" required
                  value="<?= e($_POST['lat'] ?? '0.283500') ?>" class="form-control text-mono">
         </div>
         <div>
-          <label class="form-label">Longitude</label>
+          <label class="form-label"><?= e(t('longitude')) ?></label>
           <input id="lngInput" name="lng" type="number" step="0.000001" required
                  value="<?= e($_POST['lng'] ?? '32.609500') ?>" class="form-control text-mono">
         </div>
@@ -159,20 +163,20 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <div class="form-group">
-      <label class="form-label">Detailed Description</label>
+      <label class="form-label"><?= e(t('description')) ?></label>
       <textarea name="description" rows="4" required minlength="8"
                 placeholder="Describe hazard depth, traffic obstruction, or water stagnation..."
                 class="form-control"><?= e($_POST['description'] ?? '') ?></textarea>
     </div>
 
     <div class="form-group">
-      <label class="form-label">Evidence Photo (JPG / PNG / WebP, max 5MB)</label>
+      <label class="form-label"><?= e(t('photo')) ?></label>
       <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="form-control">
     </div>
 
     <div class="row-between" style="padding-top:12px; border-top:1px solid var(--border); justify-content:flex-end;">
       <a href="dashboard.php" class="btn btn-outline">Cancel</a>
-      <button type="submit" class="btn btn-primary">Submit Fault Report</button>
+      <button type="submit" class="btn btn-primary"><?= e(t('submit_report')) ?></button>
     </div>
   </form>
 </div>

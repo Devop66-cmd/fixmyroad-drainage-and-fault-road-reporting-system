@@ -10,7 +10,7 @@ const KANSANGA_MAX_LAT = 0.298;
 const KANSANGA_MIN_LNG = 32.594;
 const KANSANGA_MAX_LNG = 32.624;
 
-const SYSTEM_ROLES = ['Community Member', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator'];
+const SYSTEM_ROLES = ['Community Member', 'Local Council', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator'];
 
 function role_privileges(): array {
     return [
@@ -18,6 +18,12 @@ function role_privileges(): array {
             'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
             'confirm_own_resolved', 'reopen_own_resolved', 'submit_feedback',
             'view_public_data', 'view_map', 'edit_own_profile',
+        ],
+        'Local Council' => [
+            'report_fault', 'view_own_reports', 'view_parish_reports', 'view_community_feed',
+            'upvote_reports', 'confirm_own_resolved', 'reopen_own_resolved', 'submit_feedback',
+            'view_public_data', 'view_map', 'edit_own_profile',
+            'post_official_comments', 'moderate_comments',
         ],
         'Field Officer' => [
             'report_fault', 'view_own_reports', 'view_community_feed', 'upvote_reports',
@@ -59,6 +65,7 @@ function role_home(string $role): string {
         'Administrator' => 'admin_dashboard.php',
         'Supervisor' => 'admin_dashboard.php?tab=reports',
         'Page Moderator' => 'admin_dashboard.php?tab=notices',
+        'Local Council' => 'dashboard.php?scope=parish',
         'Field Officer' => 'field_officer.php',
         default => 'dashboard.php',
     };
@@ -82,6 +89,30 @@ function action_allowed_for_role(string $role, string $action): bool {
         'Page Moderator' => ['create_notice', 'update_notice_expiry', 'toggle_notice_archive', 'delete_notice'],
     ];
     return in_array($action, $allowed[$role] ?? [], true);
+}
+
+function kansanga_zone(string $location): string {
+    $text = strtolower($location);
+    $zones = [
+        'kiwafu' => 'Kiwafu',
+        'nabutiti' => 'Nabutiti',
+        'kampala international' => 'KIU / Kansanga',
+        'kiu' => 'KIU / Kansanga',
+        'junction' => 'Kansanga Junction',
+        'konge' => 'Konge',
+        'bunga' => 'Bunga edge',
+        'ggaba' => 'Ggaba Road',
+    ];
+    foreach ($zones as $needle => $zone) {
+        if (str_contains($text, $needle)) {
+            return $zone;
+        }
+    }
+    return 'Other Kansanga';
+}
+
+function demo_password_needs_reset(string $hash): bool {
+    return $hash === '!' || $hash === '' || str_starts_with($hash, 'SEED_PLAIN:');
 }
 
 function login_lock_message(): ?string {
@@ -439,14 +470,35 @@ function handle_photo_upload(string $fieldName): ?string {
     if (compress_uploaded_image($tmp, $dest, $mime)) {
         return 'uploads/' . $filename;
     }
-    $fallback = 'fault_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
-    if (move_uploaded_file($tmp, $uploadDir . '/' . $fallback)) {
-        return 'uploads/' . $fallback;
+    $stripped = $uploadDir . '/' . $filename;
+    if ($mime === 'image/jpeg' && strip_jpeg_metadata($tmp, $stripped) && filesize($stripped) <= 1500000) {
+        return 'uploads/' . $filename;
     }
+    if (is_file($stripped)) {
+        unlink($stripped);
+    }
+    if ($size <= 1200000) {
+        $fallback = 'fault_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+        if (move_uploaded_file($tmp, $uploadDir . '/' . $fallback)) {
+            return 'uploads/' . $fallback;
+        }
+    }
+    $GLOBALS['fixmyroad_upload_error'] = 'This photo is too large to store without PHP GD or Imagick. Enable one of those in XAMPP, or upload a photo under 1.2MB.';
     return null;
 }
 
+function upload_error(): ?string {
+    return $GLOBALS['fixmyroad_upload_error'] ?? null;
+}
+
 function compress_uploaded_image(string $tmp, string $dest, string $mime): bool {
+    if (compress_with_gd($tmp, $dest, $mime)) {
+        return true;
+    }
+    return compress_with_imagick($tmp, $dest);
+}
+
+function compress_with_gd(string $tmp, string $dest, string $mime): bool {
     $loader = match ($mime) {
         'image/jpeg' => 'imagecreatefromjpeg',
         'image/png' => 'imagecreatefrompng',
@@ -475,4 +527,60 @@ function compress_uploaded_image(string $tmp, string $dest, string $mime): bool 
     $ok = imagejpeg($src, $dest, 75);
     imagedestroy($src);
     return $ok;
+}
+
+function compress_with_imagick(string $tmp, string $dest): bool {
+    if (!class_exists('Imagick')) {
+        return false;
+    }
+    try {
+        $image = new Imagick($tmp);
+        $image->setImageFormat('jpeg');
+        $image->thumbnailImage(1600, 1600, true);
+        $image->setImageCompressionQuality(75);
+        $image->stripImage();
+        $ok = $image->writeImage($dest);
+        $image->destroy();
+        return $ok;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function strip_jpeg_metadata(string $src, string $dest): bool {
+    $data = file_get_contents($src);
+    if ($data === false || !str_starts_with($data, "\xFF\xD8")) {
+        return false;
+    }
+    $out = "\xFF\xD8";
+    $i = 2;
+    $len = strlen($data);
+    while ($i + 3 < $len) {
+        if ($data[$i] !== "\xFF") {
+            return false;
+        }
+        $marker = ord($data[$i + 1]);
+        if ($marker === 0xDA) {
+            $out .= substr($data, $i);
+            break;
+        }
+        if ($marker === 0x01 || ($marker >= 0xD0 && $marker <= 0xD9)) {
+            $out .= $data[$i] . $data[$i + 1];
+            $i += 2;
+            continue;
+        }
+        $seglen = (ord($data[$i + 2]) << 8) + ord($data[$i + 3]);
+        if ($seglen < 2 || $i + 2 + $seglen > $len) {
+            return false;
+        }
+        $drop = in_array($marker, [0xE1, 0xE2, 0xED, 0xFE], true);
+        if (!$drop) {
+            $out .= substr($data, $i, 2 + $seglen);
+        }
+        $i += 2 + $seglen;
+    }
+    if (!str_contains($out, "\xFF\xD9")) {
+        return false;
+    }
+    return file_put_contents($dest, $out) !== false;
 }

@@ -48,8 +48,8 @@ require_once __DIR__ . '/includes/header.php';
 <div class="container-narrow">
   <div class="card stack-md">
     <div>
-      <h1 class="page-title" style="font-size:20px;">Sign In to FixMyRoad</h1>
-      <p class="page-subtitle">Kansanga Road &amp; Drainage Fault Reporting Portal</p>
+      <h1 class="page-title" style="font-size:20px;"><?= e(t('signin_title')) ?></h1>
+      <p class="page-subtitle"><?= e(t('signin_sub')) ?></p>
     </div>
 
     <?php if ($error): ?>
@@ -60,26 +60,26 @@ require_once __DIR__ . '/includes/header.php';
       <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
 
       <div class="form-group">
-        <label for="login-email" class="form-label">Email Address</label>
+        <label for="login-email" class="form-label"><?= e(t('email')) ?></label>
         <input id="login-email" name="email" type="email" required value="<?= e($_POST['email'] ?? '') ?>"
                placeholder="name@example.com" class="form-control">
       </div>
 
       <div class="form-group">
-        <label for="login-password" class="form-label">Password</label>
+        <label for="login-password" class="form-label"><?= e(t('password')) ?></label>
         <input id="login-password" name="password" type="password" required
                placeholder="Enter password" class="form-control">
       </div>
 
-      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+      <button type="submit" class="btn btn-primary btn-full"><?= e(t('signin')) ?></button>
     </form>
     <p class="text-xs" style="text-align:right; margin-top:-8px;">
-      <a href="forgot.php" class="text-primary">Forgot password?</a>
+      <a href="forgot.php" class="text-primary"><?= e(t('forgot')) ?></a>
     </p>
 
     <p class="text-xs text-muted" style="text-align:center;">
-      New resident in Kansanga?
-      <a href="register.php" class="text-primary font-bold">Create Citizen Account</a>
+      <?= e(t('new_resident')) ?>
+      <a href="register.php" class="text-primary font-bold"><?= e(t('create_account')) ?></a>
     </p>
   </div>
 </div>

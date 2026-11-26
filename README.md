@@ -12,25 +12,24 @@ Plain PHP 8 and MySQL (XAMPP). The research text mentions Laravel; this pilot us
 | Role | What they can do |
 |---|---|
 | Community Member | Report faults inside Kansanga, follow tickets, upvote, confirm repairs |
-| Field Officer | Update assigned work orders and maintenance, hide comments |
+| Local Council | See the whole parish feed, report, and hide or restore comments. Cannot dispatch |
+| Field Officer | Update assigned work orders and maintenance, hide or restore comments |
 | Supervisor | Assign crews, escalate, bulk-update reports, run the SLA sweep. Cannot manage staff or delete accounts |
-| Page Moderator | Publish and archive official notices, hide comments. Cannot dispatch repairs |
+| Page Moderator | Publish and archive official notices, hide or restore comments. Cannot dispatch repairs |
 | Administrator | Full access, including assigning and removing roles |
 
 Only an administrator can change roles. The primary administrator (`admin@roads.gov.ug`) cannot be deleted or reassigned.
 
-Extra demo accounts (created on first page load if missing), password `password123`:
-
-- Supervisor: `supervisor@roads.gov.ug`
-- Page Moderator: `moderator@roads.gov.ug`
-
-## Demo accounts
-
-Password for all three: `password123`
+Password for every demo account: `password123`
 
 - Citizen: `alaruroy@gmail.com`
+- Local Council: `lc@kansanga.go.ug`
 - Field officer: `dmukasa@roads.gov.ug`
+- Supervisor: `supervisor@roads.gov.ug`
+- Page Moderator: `moderator@roads.gov.ug`
 - Administrator: `admin@roads.gov.ug`
+
+Accounts whose password was stored as `!` are repaired to `password123` the next time a page loads. A password you already changed is left alone.
 
 ## Setup
 

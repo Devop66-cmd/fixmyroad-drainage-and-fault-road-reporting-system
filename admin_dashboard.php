@@ -616,12 +616,44 @@ require_once __DIR__ . '/includes/header.php';
               <div class="card-muted stack-sm">
                 <div class="row-between text-xs font-bold">
                   <span><?= e($ln['title']) ?></span>
-                  <span class="text-muted"><?= e($ln['category']) ?></span>
+                  <span class="text-muted"><?= e(t_notice($ln['category'])) ?></span>
                 </div>
                 <p class="text-xs text-muted"><?= e($ln['message']) ?></p>
               </div>
             <?php endforeach; ?>
           </div>
+        </div>
+
+        <div class="card stack-md">
+          <h2 class="section-title">Kansanga fault density by place</h2>
+          <p class="text-xs text-muted">Parish baseline. Places come from the street text until village boundaries are mapped.</p>
+          <?php
+          $zoneCounts = [];
+          $statusCounts = [];
+          foreach ($reports as $r) {
+              $zone = kansanga_zone((string)$r['location']);
+              $zoneCounts[$zone] = ($zoneCounts[$zone] ?? 0) + 1;
+              $statusCounts[$r['status']] = ($statusCounts[$r['status']] ?? 0) + 1;
+          }
+          arsort($zoneCounts);
+          foreach ($zoneCounts as $zoneName => $cnt):
+              $pct = $totalReports > 0 ? (int)round(($cnt / $totalReports) * 100) : 0;
+          ?>
+            <div>
+              <div class="row-between text-xs font-bold" style="margin-bottom:4px;">
+                <span><?= e($zoneName) ?></span>
+                <span class="tabular-nums"><?= $cnt ?> (<?= $pct ?>%)</span>
+              </div>
+              <div class="progress-track-light">
+                <div class="progress-fill-blue" style="width: <?= $pct ?>%"></div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+          <p class="text-xs text-muted">
+            <?php foreach (['Pending', 'In Progress', 'Resolved', 'Rejected'] as $st): ?>
+              <?= e(t_status($st)) ?>: <?= (int)($statusCounts[$st] ?? 0) ?>
+            <?php endforeach; ?>
+          </p>
         </div>
       </div>
 
@@ -1000,7 +1032,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php elseif ($activeTab === 'staff'): ?>
       <div>
         <h1 class="page-title">Staff Provisioning and Role Management</h1>
-        <p class="page-subtitle">Five roles: Community Member, Field Officer, Supervisor, Page Moderator, and Administrator. Only an administrator can assign or remove a role.</p>
+        <p class="page-subtitle">Six roles: Community Member, Local Council, Field Officer, Supervisor, Page Moderator, and Administrator. Only an administrator can assign or remove a role.</p>
       </div>
 
       <form method="POST" class="card stack-md">

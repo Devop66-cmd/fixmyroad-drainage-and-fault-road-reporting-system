@@ -21,7 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggl
     redirect_to($_SERVER['REQUEST_URI'] ?? 'dashboard.php');
 }
 
-$scope = ($_GET['scope'] ?? 'mine') === 'all' ? 'all' : 'mine';
+$requestedScope = (string)($_GET['scope'] ?? ($user['role'] === 'Local Council' ? 'parish' : 'mine'));
+$scope = in_array($requestedScope, ['mine', 'all', 'parish'], true) ? $requestedScope : 'mine';
 $statusFilter = trim((string)($_GET['status'] ?? 'All'));
 $categoryFilter = trim((string)($_GET['category'] ?? 'All'));
 $noticeCategory = trim((string)($_GET['notice_cat'] ?? 'All'));
@@ -81,16 +82,22 @@ require_once __DIR__ . '/includes/header.php';
   <aside class="sidebar">
     <div>
       <div class="sidebar-header">
-        <div class="sidebar-role">Citizen Portal</div>
+        <div class="sidebar-role"><?= $user['role'] === 'Local Council' ? 'Local Council' : 'Citizen Portal' ?></div>
         <div class="sidebar-user"><?= e($user['name']) ?></div>
         <div class="sidebar-sub tabular-nums"><?= $hero['points'] ?> Hero Pts · <?= e($hero['tier']) ?></div>
       </div>
 
       <nav class="sidebar-nav">
         <a href="dashboard.php?scope=mine" class="sidebar-link <?= $scope === 'mine' ? 'active' : '' ?>">
-          <span>My Reported Faults</span>
+          <span><?= e(t('my_reports')) ?></span>
           <span class="tabular-nums"><?= count($myReports) ?></span>
         </a>
+        <?php if ($user['role'] === 'Local Council'): ?>
+        <a href="dashboard.php?scope=parish" class="sidebar-link <?= $scope === 'parish' ? 'active' : '' ?>">
+          <span><?= e(t('parish_feed')) ?></span>
+          <span class="tabular-nums"><?= count($allReports) ?></span>
+        </a>
+        <?php endif; ?>
         <a href="dashboard.php?scope=all" class="sidebar-link <?= $scope === 'all' ? 'active' : '' ?>">
           <span>Community Feed</span>
           <span class="tabular-nums"><?= count($allReports) ?></span>

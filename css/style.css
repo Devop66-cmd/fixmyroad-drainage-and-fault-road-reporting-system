@@ -911,13 +911,29 @@ img {
 @media (max-width: 960px) {
   .portal-layout { flex-direction: column; }
   .sidebar { width: 100%; }
+  .header-inner { height: auto; flex-wrap: wrap; padding: 10px 14px; }
+  .main-nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    gap: 14px;
+    padding: 8px 0 4px;
+  }
+  .nav-link { white-space: nowrap; }
+  .header-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .sidebar-nav { flex-direction: row; overflow-x: auto; gap: 8px; }
+  .sidebar-link { white-space: nowrap; width: auto; }
+  .data-table { min-width: 680px; }
+  .page-header, .row-between { flex-wrap: wrap; align-items: flex-start; gap: 8px; }
   .grid-4, .grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-3, .split-8-4, .split-3-2, .footer-grid { grid-template-columns: 1fr; }
-  .main-nav { display: none; }
 }
 
 @media (max-width: 640px) {
   .grid-2, .grid-4, .grid-5, .filter-bar { grid-template-columns: 1fr; }
   .portal-main { padding: 18px 14px; }
   .hero-title { font-size: 22px; }
+  .form-control, .btn { font-size: 16px; }
+  .user-chip { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

@@ -51,15 +51,21 @@ function ensure_schema(PDO $pdo): void {
         $seed->execute([$k, $v]);
     }
 
-    $roleEnum = "ENUM('Community Member','Field Officer','Supervisor','Page Moderator','Administrator')";
+    $roleEnum = "ENUM('Community Member','Local Council','Field Officer','Supervisor','Page Moderator','Administrator')";
     $pdo->exec("ALTER TABLE users MODIFY role $roleEnum NOT NULL DEFAULT 'Community Member'");
     $pdo->exec("ALTER TABLE report_comments MODIFY author_role $roleEnum NOT NULL DEFAULT 'Community Member'");
-    $pdo->exec("ALTER TABLE notifications MODIFY target_role ENUM('All','Community Member','Field Officer','Supervisor','Page Moderator','Administrator') NOT NULL DEFAULT 'All'");
+    $pdo->exec("ALTER TABLE notifications MODIFY target_role ENUM('All','Community Member','Local Council','Field Officer','Supervisor','Page Moderator','Administrator') NOT NULL DEFAULT 'All'");
 
     $hash = password_hash('password123', PASSWORD_DEFAULT);
     $add = $pdo->prepare("INSERT IGNORE INTO users (id, name, email, password_hash, phone, role, division, street_address, account_status) VALUES (?, ?, ?, ?, ?, ?, 'Kansanga (Makindye)', ?, 'active')");
     $add->execute(['usr-4', 'James Okello', 'supervisor@roads.gov.ug', $hash, '+256 700 100 004', 'Supervisor', 'Makindye Works Office']);
     $add->execute(['usr-5', 'Amina Nabirye', 'moderator@roads.gov.ug', $hash, '+256 700 100 005', 'Page Moderator', 'Kansanga Parish']);
+    $add->execute(['usr-6', 'Grace Nakato', 'lc@kansanga.go.ug', $hash, '+256 700 100 006', 'Local Council', 'Kansanga LC1 Office']);
+
+    $repair = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ? AND (password_hash = ? OR password_hash = ? OR password_hash LIKE ?)');
+    foreach (['usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5', 'usr-6'] as $id) {
+        $repair->execute([$hash, $id, '!', '', 'SEED_PLAIN:%']);
+    }
 }
 
 function db(): PDO {
@@ -76,7 +82,6 @@ function db(): PDO {
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
         ensure_schema($pdo);
-        $pdo->exec("UPDATE users SET password_hash = '!' WHERE password_hash = 'SEED_PLAIN:password123'");
         return $pdo;
     } catch (PDOException $e) {
         http_response_code(500);

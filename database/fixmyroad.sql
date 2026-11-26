@@ -27,7 +27,7 @@ CREATE TABLE `users` (
   `email` VARCHAR(160) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `phone` VARCHAR(40) DEFAULT '',
-  `role` ENUM('Community Member', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'Community Member',
+  `role` ENUM('Community Member', 'Local Council', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'Community Member',
   `division` VARCHAR(120) DEFAULT 'Kansanga (Makindye)',
   `street_address` VARCHAR(200) DEFAULT '',
   `avatar` VARCHAR(500) DEFAULT '',
@@ -109,7 +109,7 @@ CREATE TABLE `report_comments` (
   `report_id` VARCHAR(32) NOT NULL,
   `author_id` VARCHAR(40) NOT NULL,
   `author_name` VARCHAR(120) NOT NULL,
-  `author_role` ENUM('Community Member', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'Community Member',
+  `author_role` ENUM('Community Member', 'Local Council', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'Community Member',
   `text` TEXT NOT NULL,
   `is_official_question` TINYINT(1) NOT NULL DEFAULT 0,
   `hidden` TINYINT(1) NOT NULL DEFAULT 0,
@@ -157,7 +157,7 @@ CREATE TABLE `notifications` (
   `title` VARCHAR(160) NOT NULL,
   `message` TEXT NOT NULL,
   `notif_type` ENUM('info', 'status', 'escalation', 'resolved', 'assignment') NOT NULL DEFAULT 'info',
-  `target_role` ENUM('All', 'Community Member', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'All',
+  `target_role` ENUM('All', 'Community Member', 'Local Council', 'Field Officer', 'Supervisor', 'Page Moderator', 'Administrator') NOT NULL DEFAULT 'All',
   `report_id` VARCHAR(32) DEFAULT NULL,
   `is_read` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -184,13 +184,15 @@ CREATE TABLE `settings` (
 
 -- ---------------------------------------------------------------------------
 -- SEED DATA (Kansanga, Makindye Division Pilot)
--- Seed accounts are disabled until an administrator sets unique passwords.
+-- Demo password for every seeded account: password123
+-- Stored as SEED_PLAIN so the first login upgrades it to a hash.
 -- ---------------------------------------------------------------------------
 
 INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `phone`, `role`, `division`, `street_address`, `avatar`, `account_status`) VALUES
-('usr-1', 'Ipavu Roy', 'alaruroy@gmail.com', '!', '+256 701 234 567', 'Community Member', 'Kansanga (Makindye)', 'Plot 14, Ggaba Road, Kansanga', '', 'active'),
-('usr-2', 'David Mukasa', 'dmukasa@roads.gov.ug', '!', '+256 772 987 654', 'Field Officer', 'Kiwafu / Kansanga', 'Kansanga Works Outpost, Kiwafu Road', '', 'active'),
-('usr-3', 'Sarah Nsubuga', 'admin@roads.gov.ug', '!', '+256 754 112 233', 'Administrator', 'Makindye Division (Kansanga Pilot)', 'Makindye - Kansanga Municipal Works Office, Ggaba Road', '', 'active');
+('usr-1', 'Ipavu Roy', 'alaruroy@gmail.com', 'SEED_PLAIN:password123', '+256 701 234 567', 'Community Member', 'Kansanga (Makindye)', 'Plot 14, Ggaba Road, Kansanga', '', 'active'),
+('usr-2', 'David Mukasa', 'dmukasa@roads.gov.ug', 'SEED_PLAIN:password123', '+256 772 987 654', 'Field Officer', 'Kiwafu / Kansanga', 'Kansanga Works Outpost, Kiwafu Road', '', 'active'),
+('usr-3', 'Sarah Nsubuga', 'admin@roads.gov.ug', 'SEED_PLAIN:password123', '+256 754 112 233', 'Administrator', 'Makindye Division (Kansanga Pilot)', 'Makindye - Kansanga Municipal Works Office, Ggaba Road', '', 'active'),
+('usr-6', 'Grace Nakato', 'lc@kansanga.go.ug', 'SEED_PLAIN:password123', '+256 700 100 006', 'Local Council', 'Kansanga (Makindye)', 'Kansanga LC1 Office', '', 'active');
 
 INSERT INTO `officers` (`id`, `name`, `division`, `specialty`, `max_capacity`, `status`, `avg_resolution_hours`) VALUES
 ('off-1', 'David Mukasa', 'Kansanga & Kiwafu', 'Asphalt & Road Base Lead', 6, 'Field Deployed', 19),
