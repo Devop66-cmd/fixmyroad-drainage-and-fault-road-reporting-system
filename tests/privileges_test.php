@@ -41,6 +41,12 @@ check(demo_password_needs_reset('SEED_PLAIN:password123'), 'seed hash resets');
 check(!demo_password_needs_reset('$2y$10$abcdefghijklmnopqrstuv'), 'real hash kept');
 
 $_SESSION['lang'] = 'lg';
+check(!luganda_enabled(['luganda_enabled' => '0']), 'luganda off by default');
+apply_language_choice(['luganda_enabled' => '0']);
+check(($_SESSION['lang'] ?? '') === 'en', 'disabled luganda forces English');
+$_GET['lang'] = 'lg';
+apply_language_choice(['luganda_enabled' => '1']);
+check($_SESSION['lang'] === 'lg', 'admin can activate luganda');
 check(t('signin_title') === 'Yingira mu FixMyRoad', 'luganda sign in');
 check(t_status('In Progress') === 'Kiriko okukolebwa', 'luganda status');
 check(t_category('Blocked Drainage') === 'Omugga guzibikidde', 'luganda category');

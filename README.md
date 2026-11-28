@@ -37,4 +37,9 @@ See [README_XAMPP.md](README_XAMPP.md). Import `database/fixmyroad.sql`. On the 
 
 Optional environment variables: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`.
 
+## Language
+
+The site is English only until an administrator turns on Luganda under Admin Center, Support. Residents do not see a language switch while that box is unchecked.
+
+
 

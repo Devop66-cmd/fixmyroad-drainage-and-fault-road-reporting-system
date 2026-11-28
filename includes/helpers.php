@@ -245,6 +245,7 @@ function get_portal_settings(): array {
         'support_toll_free' => '0800 900 112',
         'support_city_line' => '+256 414 901 000',
         'support_dispatch_email' => 'works@roads.gov.ug',
+        'luganda_enabled' => '0',
     ];
     try {
         $rows = db()->query('SELECT setting_key, setting_value FROM settings')->fetchAll();

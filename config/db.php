@@ -47,6 +47,7 @@ function ensure_schema(PDO $pdo): void {
         'sla_last_sweep' => '2000-01-01 00:00:00',
         'notify_email' => '0',
         'notify_sms' => '0',
+        'luganda_enabled' => '0',
     ] as $k => $v) {
         $seed->execute([$k, $v]);
     }

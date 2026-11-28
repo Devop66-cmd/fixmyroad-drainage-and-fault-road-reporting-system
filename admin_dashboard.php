@@ -421,6 +421,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'support_dispatch_email' => trim((string)($_POST['support_dispatch_email'] ?? 'works@roads.gov.ug')),
             'notify_email' => isset($_POST['notify_email']) ? '1' : '0',
             'notify_sms' => isset($_POST['notify_sms']) ? '1' : '0',
+            'luganda_enabled' => isset($_POST['luganda_enabled']) ? '1' : '0',
         ];
         $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
         foreach ($pairs as $k => $v) {
@@ -1200,6 +1201,10 @@ require_once __DIR__ . '/includes/header.php';
         <label class="text-xs font-bold" style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
           <input type="checkbox" name="notify_sms" value="1" <?= ($settings['notify_sms'] ?? '0') === '1' ? 'checked' : '' ?>>
           Queue an SMS copy to the division line (demo outbox, not a live gateway)
+        </label>
+        <label class="text-xs font-bold" style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+          <input type="checkbox" name="luganda_enabled" value="1" <?= ($settings['luganda_enabled'] ?? '0') === '1' ? 'checked' : '' ?>>
+          Show the Luganda language switch to residents (off by default)
         </label>
         <button type="submit" class="btn btn-primary">Save Support Channels</button>
       </form>

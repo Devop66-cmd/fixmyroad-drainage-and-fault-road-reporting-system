@@ -5,11 +5,9 @@
 $pageTitle = $pageTitle ?? 'FixMyRoad - Road & Drainage Fault Reporting System';
 $activePage = $activePage ?? '';
 $authUser = current_user();
-if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'lg'], true)) {
-    $_SESSION['lang'] = $_GET['lang'];
-}
 require_once __DIR__ . '/i18n.php';
 $portalSettings = get_portal_settings();
+apply_language_choice($portalSettings);
 
 if (!isset($_SESSION['dismissed_notices'])) {
     $_SESSION['dismissed_notices'] = [];
@@ -94,8 +92,11 @@ $flash = flash_get();
         <a href="login.php" class="btn btn-outline"><?= e(t('signin')) ?></a>
         <a href="register.php" class="btn btn-primary"><?= e(t('register')) ?></a>
       <?php endif; ?>
-      <?php $lang = $_SESSION['lang'] ?? 'en'; ?>
+      <?php if (luganda_enabled($portalSettings)):
+          $lang = $_SESSION['lang'] ?? 'en';
+      ?>
       <a href="?<?= e(http_build_query(array_merge($_GET, ['lang' => $lang === 'lg' ? 'en' : 'lg']))) ?>" class="btn btn-outline btn-sm"><?= $lang === 'lg' ? 'English' : 'Luganda' ?></a>
+      <?php endif; ?>
     </div>
   </div>
 </header>

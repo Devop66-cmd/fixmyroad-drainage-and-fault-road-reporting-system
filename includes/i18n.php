@@ -1,4 +1,20 @@
 <?php
+function apply_language_choice(array $settings): void {
+    $enabled = ($settings['luganda_enabled'] ?? '0') === '1';
+    if (!$enabled) {
+        $_SESSION['lang'] = 'en';
+        return;
+    }
+    $choice = $_GET['lang'] ?? '';
+    if (in_array($choice, ['en', 'lg'], true)) {
+        $_SESSION['lang'] = $choice;
+    }
+}
+
+function luganda_enabled(array $settings): bool {
+    return ($settings['luganda_enabled'] ?? '0') === '1';
+}
+
 function t(string $key): string {
     $lang = $_SESSION['lang'] ?? 'en';
     $en = [
